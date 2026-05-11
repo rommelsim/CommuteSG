@@ -85,13 +85,11 @@ struct BusStopDetailView: View {
                                 selection: $filter
                             )
                             Spacer(minLength: 0)
-                            LiveBadge(
-                                mode: dataMode == .live ? .live : .demo,
-                                lastUpdated: lastRefresh,
-                                granularity: .fine,
-                                onRefresh: { Task { await refresh(force: true) } }
-                            )
-                            .padding(.trailing, Spacing.screen)
+                            LiveStatusPill(minutesAgo: minutesSinceRefresh)
+                                .onTapGesture {
+                                    Task { await refresh(force: true) }
+                                }
+                                .padding(.trailing, Spacing.screen)
                         }
                         busList
                     }
@@ -138,6 +136,11 @@ struct BusStopDetailView: View {
         case .all: arrivals
         case .saved: arrivals.filter { appState.favoriteLineCodes.contains($0.serviceNo) }
         }
+    }
+
+    private var minutesSinceRefresh: Int {
+        guard let lastRefresh else { return 0 }
+        return max(0, Int(Date().timeIntervalSince(lastRefresh) / 60))
     }
 
     // MARK: - Map (interactive, with bus markers + recenter)
@@ -282,6 +285,9 @@ private struct BusOnMap: Identifiable {
 }
 
 // MARK: - Service row
+// CM design: each service is a CMCard wrapping a BusArrivalRow with a
+// trailing favorite star. Crowd / bus-type chips are intentionally omitted —
+// they're surfaced on the live tracking screen reached by tapping the row.
 
 private struct BusServiceRow: View {
     let arrival: BusArrival
@@ -289,17 +295,14 @@ private struct BusServiceRow: View {
     let onToggleFavorite: () -> Void
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            HStack {
-                HStack(spacing: 10) {
-                    Text(arrival.serviceNo)
-                        .font(.appSubTitle)
-                        .foregroundStyle(Color.appText)
-                    Text(arrival.destination.isEmpty ? "" : arrival.destination)
-                        .font(.appCaption)
-                        .foregroundStyle(Color.appText2)
-                }
-                Spacer()
+        CMCard {
+            HStack(alignment: .center, spacing: 10) {
+                BusArrivalRow(
+                    busNumber: arrival.serviceNo,
+                    destination: arrival.destinationCode ?? arrival.destination,
+                    nextMinutes: arrival.nextArrivalMinutes,
+                    followingMinutes: arrival.followingArrivalMinutes
+                )
                 Button(action: onToggleFavorite) {
                     Image(systemName: isFavorite ? "star.fill" : "star")
                         .font(.system(size: 16, weight: .semibold))
@@ -308,29 +311,6 @@ private struct BusServiceRow: View {
                 .buttonStyle(.plain)
                 .sensoryFeedback(.selection, trigger: isFavorite)
             }
-            HStack(spacing: 8) {
-                ArrivalPill(
-                    topLine: ArrivalStatus.label(
-                        minutes: arrival.nextArrivalMinutes,
-                        scheduled: arrival.nextArrivalIsScheduled
-                    ),
-                    status: ArrivalStatus.from(minutes: arrival.nextArrivalMinutes),
-                    busType: arrival.nextArrivalType,
-                    crowdLevel: arrival.nextArrivalCrowd
-                )
-                ArrivalPill(
-                    topLine: ArrivalStatus.label(
-                        minutes: arrival.followingArrivalMinutes,
-                        scheduled: arrival.followingArrivalIsScheduled
-                    ),
-                    status: ArrivalStatus.from(minutes: arrival.followingArrivalMinutes),
-                    busType: arrival.followingArrivalType,
-                    crowdLevel: arrival.followingArrivalCrowd
-                )
-            }
         }
-        .padding(Spacing.cardInner)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .glassCard(cornerRadius: Radius.card)
     }
 }

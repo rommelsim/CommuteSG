@@ -24,6 +24,7 @@ struct MRTStationsView: View {
 
     let stations: [CMMRTStation]
     let nearbyLocation: String
+    let minutesAgo: Int
 
     private let filters = ["Nearest", "All lines", "Favourites"]
     @State private var selectedFilter = "Nearest"
@@ -75,7 +76,7 @@ struct MRTStationsView: View {
 
             Spacer()
 
-            LiveStatusPill(minutesAgo: 1)
+            LiveStatusPill(minutesAgo: minutesAgo)
         }
     }
 
@@ -211,7 +212,8 @@ struct StationCard: View {
                     arrivalsByLine: [:]
                 ),
             ],
-            nearbyLocation: "Tanjong Pagar"
+            nearbyLocation: "Tanjong Pagar",
+            minutesAgo: 1
         )
     }
 }

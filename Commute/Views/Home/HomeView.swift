@@ -68,7 +68,7 @@ struct HomeView: View {
             .environment(\.defaultMinListRowHeight, 0)
             .scrollContentBackground(.hidden)
             .scrollIndicators(.hidden)
-            .background(Color.appSurface)
+            .background(Color(.secondarySystemBackground))
             .refreshable { await viewModel.refresh() }
             .task { await viewModel.load() }
             .navigationDestination(for: HomeRoute.self) { route in
@@ -417,7 +417,10 @@ struct HomeView: View {
         case .allMRTStations:
             AllMRTStationsScreen()
         case .allBusStops:
-            AllBusStopsScreen(entries: viewModel.nearbyBusStops)
+            AllBusStopsScreen(
+                entries: viewModel.nearbyBusStops,
+                lastRefresh: viewModel.lastSuccessfulRefresh
+            )
         }
     }
 

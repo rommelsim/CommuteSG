@@ -16,28 +16,29 @@ enum StopsAdapters {
     /// populated here — tap into the station detail sheet for those.
     static func make(from station: MRTStation) -> CMMRTStation {
         let meters = station.distanceMeters ?? 0
-        let codes: [String] = [station.id]
-            + station.interchangeLines.map { code(forLine: $0, fallback: station) }
         return CMMRTStation(
             name: station.name,
-            codes: codes,
+            codes: codes(for: station),
             walkMinutes: walkMinutes(forMeters: meters),
             walkMeters: meters,
             arrivalsByLine: [:]
         )
     }
 
-    /// Resolve a sibling code at the same physical interchange. We pick any
-    /// station on that line sharing the name; falls back to the line's prefix
-    /// + "?" if nothing matches.
-    private static func code(forLine line: MRTLine, fallback station: MRTStation) -> String {
-        let match = MRTStationsRepository.shared.stations.first {
-            $0.line == line && $0.name == station.name
+    /// All MRT codes that meet at this physical station (primary + interchanges).
+    /// Looks up each interchange line's code by station name; falls back to a
+    /// "?"-suffixed prefix if no match exists in the repository.
+    static func codes(for station: MRTStation) -> [String] {
+        [station.id] + station.interchangeLines.map { line in
+            let match = MRTStationsRepository.shared.stations.first {
+                $0.line == line && $0.name == station.name
+            }
+            return match?.id ?? "\(line.code)?"
         }
-        return match?.id ?? "\(line.code)?"
     }
 
     /// Map an existing bus stop + its arrivals → CM display model.
+    @MainActor
     static func make(from stop: BusStop, arrivals: [BusArrival]) -> CMBusStop {
         let meters = stop.distanceMeters ?? 0
         let services = arrivals
@@ -45,7 +46,7 @@ enum StopsAdapters {
             .map { arr in
                 CMBusService(
                     number: arr.serviceNo,
-                    destination: arr.destinationCode ?? arr.destination,
+                    destination: destinationLabel(for: arr),
                     nextMinutes: arr.nextArrivalMinutes,
                     followingMinutes: arr.followingArrivalMinutes
                 )
@@ -58,6 +59,18 @@ enum StopsAdapters {
             services: services,
             hasLiveData: !services.isEmpty
         )
+    }
+
+    /// Resolve an LTA destination code to a stop name when possible. Falls
+    /// back to the raw code (e.g. "11379") if the stops dataset hasn't loaded
+    /// yet or the code isn't in the catalogue.
+    @MainActor
+    static func destinationLabel(for arrival: BusArrival) -> String {
+        if let code = arrival.destinationCode,
+           let name = BusStopNameCache.shared.name(forCode: code) {
+            return name
+        }
+        return arrival.destinationCode ?? ""
     }
 }
 

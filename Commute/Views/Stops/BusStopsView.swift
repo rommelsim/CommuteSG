@@ -27,6 +27,7 @@ struct BusStopsView: View {
 
     let stops: [CMBusStop]
     let nearbyLocation: String
+    let minutesAgo: Int
 
     var body: some View {
         ScrollView {
@@ -70,7 +71,7 @@ struct BusStopsView: View {
 
             Spacer()
 
-            LiveStatusPill(minutesAgo: 1)
+            LiveStatusPill(minutesAgo: minutesAgo)
         }
     }
 
@@ -126,7 +127,7 @@ struct BusStopCard: View {
                 }
                 Spacer()
                 if stop.hasLiveData {
-                    Text(stop.code)
+                    Text("Stop \(stop.code)")
                         .font(.caption2)
                         .foregroundStyle(.tertiary)
                         .monospacedDigit()
@@ -136,19 +137,21 @@ struct BusStopCard: View {
                         .foregroundStyle(.tertiary)
                 }
             }
+            .frame(maxWidth: .infinity, alignment: .leading)
 
             if stop.hasLiveData {
                 Divider()
                     .padding(.top, 12)
 
                 VStack(spacing: CMSpacing.rowGap) {
-                    ForEach(visibleServices) { svc in
+                    ForEach(Array(visibleServices.enumerated()), id: \.offset) { _, svc in
                         BusArrivalRow(
                             busNumber: svc.number,
                             destination: svc.destination,
                             nextMinutes: svc.nextMinutes,
                             followingMinutes: svc.followingMinutes
                         )
+                        .frame(maxWidth: .infinity, alignment: .leading)
                     }
 
                     if hiddenCount > 0 {
@@ -217,7 +220,8 @@ struct BusStopCard: View {
                     hasLiveData: false
                 ),
             ],
-            nearbyLocation: "Tanjong Pagar"
+            nearbyLocation: "Tanjong Pagar",
+            minutesAgo: 1
         )
     }
 }

@@ -1,6 +1,22 @@
 import Foundation
 import CoreLocation
 
+/// Sync, MainActor-readable lookup of bus-stop names by code. Populated by
+/// `BusStopsRepository` whenever its stop dataset loads or refreshes. Used
+/// by views to resolve LTA destination codes (e.g. "11379") to stop names
+/// (e.g. "Aljunied Stn") without an async hop.
+@MainActor
+final class BusStopNameCache {
+    static let shared = BusStopNameCache()
+    private var dict: [String: String] = [:]
+
+    func name(forCode code: String) -> String? { dict[code] }
+
+    func update(from stops: [BusStop]) {
+        dict = Dictionary(uniqueKeysWithValues: stops.map { ($0.id, $0.name) })
+    }
+}
+
 actor BusStopsRepository {
     static let shared = BusStopsRepository()
 
@@ -24,6 +40,8 @@ actor BusStopsRepository {
                         coordinate: CLLocationCoordinate2D(latitude: row.lat, longitude: row.lon))
             }
             self.lastUpdated = payload.savedAt
+            let snapshot = self.stops
+            Task { @MainActor in BusStopNameCache.shared.update(from: snapshot) }
         }
     }
 
@@ -75,6 +93,8 @@ actor BusStopsRepository {
         self.stops = collected
         self.lastUpdated = Date()
         saveToDisk()
+        let snapshot = collected
+        Task { @MainActor in BusStopNameCache.shared.update(from: snapshot) }
     }
 
     func nearest(to location: CLLocation, count: Int) -> [BusStop] {

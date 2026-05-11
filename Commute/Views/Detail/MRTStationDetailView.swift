@@ -17,7 +17,7 @@ struct MRTStationDetailView: View {
             DetailHeader(
                 center: {
                     HStack(spacing: 12) {
-                        LineBadge(line: station.line, code: station.id, emphasized: true)
+                        MRTLinePill(code: station.id)
                         Text(station.name)
                             .font(.appSubTitle)
                             .foregroundStyle(Color.appText)
@@ -114,20 +114,20 @@ struct MRTStationDetailView: View {
     }
 
     private var crowdCard: some View {
-        HStack(spacing: 14) {
-            CrowdBars(level: viewModel.crowdLevel)
-            VStack(alignment: .leading, spacing: 2) {
-                Text(viewModel.crowdLevel.label)
-                    .font(.appCardTitle)
-                    .foregroundStyle(Color.appText)
-                Text("Updated every 10 min by LTA")
-                    .font(.appMicro)
-                    .foregroundStyle(Color.appText3)
+        CMCard {
+            HStack(spacing: 14) {
+                CrowdBars(level: viewModel.crowdLevel)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(viewModel.crowdLevel.label)
+                        .font(.appCardTitle)
+                        .foregroundStyle(Color.appText)
+                    Text("Updated every 10 min by LTA")
+                        .font(.appMicro)
+                        .foregroundStyle(Color.appText3)
+                }
+                Spacer()
             }
-            Spacer()
         }
-        .padding(14)
-        .glassCard(cornerRadius: Radius.card)
         .padding(.horizontal, Spacing.screen)
     }
 
@@ -161,22 +161,22 @@ struct MRTStationDetailView: View {
     }
 
     private var lineMap: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            Text(station.line.fullName)
-                .font(.appCaptionMedium)
-                .foregroundStyle(Color.appText2)
-                .padding(.horizontal, 16)
-                .padding(.bottom, 10)
+        CMCard {
+            VStack(alignment: .leading, spacing: 0) {
+                Text(station.line.fullName)
+                    .font(.appCaptionMedium)
+                    .foregroundStyle(Color.appText2)
+                    .padding(.horizontal, 8)
+                    .padding(.bottom, 10)
 
-            directionStrip
-                .padding(.horizontal, 12)
-                .padding(.bottom, 6)
+                directionStrip
+                    .padding(.horizontal, 4)
+                    .padding(.bottom, 6)
 
-            stationsRow
+                stationsRow
+            }
+            .padding(.vertical, 4)
         }
-        .padding(.vertical, 16)
-        .padding(.horizontal, 8)
-        .glassCard(cornerRadius: Radius.card)
         .padding(.horizontal, Spacing.screen)
         .onAppear { showStations = true }
         .onChange(of: station.id) { _, _ in
@@ -257,7 +257,7 @@ struct MRTStationDetailView: View {
 
     private var demoFooter: some View {
         HStack(spacing: 6) {
-            LiveBadge(mode: viewModel.dataMode == .live ? .live : .demo)
+            LiveStatusPill(minutesAgo: 0)
             Text("Live train arrivals, exits and amenities aren't published by LTA.")
                 .font(.appMicro)
                 .foregroundStyle(Color.appText3)
