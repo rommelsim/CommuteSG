@@ -4,11 +4,14 @@ enum MainTab: Hashable, CaseIterable {
     case home, plan, fares, alerts
 
     var label: String {
+        // Use NSLocalizedString explicitly so the lookup goes through the
+        // swizzled Bundle.main path. (String(localized:) appears to bypass
+        // our override in some configurations.)
         switch self {
-        case .home:   "Home"
-        case .plan:   "Plan"
-        case .fares:  "Fares"
-        case .alerts: "Alerts"
+        case .home:   NSLocalizedString("Home", comment: "")
+        case .plan:   NSLocalizedString("Plan", comment: "")
+        case .fares:  NSLocalizedString("Fares", comment: "")
+        case .alerts: NSLocalizedString("Alerts", comment: "")
         }
     }
 

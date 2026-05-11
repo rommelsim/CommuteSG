@@ -17,7 +17,11 @@
       "Bash(xxd Commute/Assets.xcassets/AppIcon.appiconset/AppIcon-1024.png)",
       "Bash(xcodebuild -project Commute.xcodeproj -scheme Commute -destination 'platform=iOS Simulator,name=iPhone 15' build)",
       "Bash(DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer xcodebuild -project Commute.xcodeproj -scheme Commute -destination 'platform=iOS Simulator,name=iPhone 15' build)",
-      "Bash(DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer xcodebuild -project Commute.xcodeproj -scheme Commute -destination 'platform=iOS Simulator,name=iPhone 17' build)"
+      "Bash(DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer xcodebuild -project Commute.xcodeproj -scheme Commute -destination 'platform=iOS Simulator,name=iPhone 17' build)",
+      "Bash(xargs -I {} ls \"{}\")",
+      "Bash(DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer xcodebuild -project Commute.xcodeproj -scheme Commute -destination 'platform=iOS Simulator,name=iPhone 17' clean build)",
+      "Bash(xargs -I {} find \"{}\" -type d -name \"*.lproj\")",
+      "Bash(plutil -p /Users/rommel/Library/Developer/Xcode/DerivedData/Commute-hbsjzcdzahjjwzecfpbsqykmutoj/Build/Products/Release-iphonesimulator/Commute.app/zh-Hans.lproj/Localizable.strings)"
     ]
   }
 }

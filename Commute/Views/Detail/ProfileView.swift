@@ -149,7 +149,18 @@ struct ProfileView: View {
                 ToggleSwitch(isOn: Binding(get: { appState.notificationsEnabled }, set: { appState.notificationsEnabled = $0 }))
             }
 
-            ListRow(symbol: "globe", symbolTint: Color.appText2, label: "Language", value: "English")
+            Button {
+                appState.cycleLanguage()
+            } label: {
+                ListRow(
+                    symbol: "globe",
+                    symbolTint: Color.appText2,
+                    label: "Language",
+                    value: appState.language.displayName
+                )
+            }
+            .buttonStyle(.plain)
+            .sensoryFeedback(.selection, trigger: appState.language)
         }
         .padding(.horizontal, Spacing.screen)
     }
@@ -322,12 +333,17 @@ private struct ListRow<Trailing: View>: View {
                 .font(.system(size: 16, weight: .medium))
                 .foregroundStyle(symbolTint)
                 .frame(width: 22)
-            Text(label)
+            // Wrap incoming String through LocalizedStringKey so callers can
+            // pass plain literals like "Dark mode" and still get the Chinese
+            // translation. For already-localized strings (e.g. dynamic enum
+            // labels via String(localized:)), the lookup falls through and
+            // the value renders verbatim — harmless.
+            Text(LocalizedStringKey(label))
                 .font(.appBodyMedium)
                 .foregroundStyle(Color.appText)
             Spacer()
             if let value {
-                Text(value)
+                Text(LocalizedStringKey(value))
                     .font(.appCaption)
                     .foregroundStyle(Color.appText2)
                     .lineLimit(1)

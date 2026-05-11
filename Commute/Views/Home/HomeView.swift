@@ -438,9 +438,9 @@ private extension HomeView {
     var timeBasedGreeting: String {
         let h = Calendar.current.component(.hour, from: Date())
         switch h {
-        case 5..<12:  return "Good morning"
-        case 12..<18: return "Good afternoon"
-        default:      return "Good evening"
+        case 5..<12:  return NSLocalizedString("Good morning", comment: "")
+        case 12..<18: return NSLocalizedString("Good afternoon", comment: "")
+        default:      return NSLocalizedString("Good evening", comment: "")
         }
     }
 }

@@ -29,6 +29,43 @@ enum AppColorScheme: Int, CaseIterable {
     }
 }
 
+enum AppLanguage: String, CaseIterable {
+    case system = "system"
+    case english = "en"
+    case chinese = "zh-Hans"
+
+    /// The ISO code passed to `Bundle(path:)` to load the matching `.lproj`.
+    /// `system` returns `nil` so we restore Bundle.main's default behavior.
+    var bundleCode: String? {
+        switch self {
+        case .system:  nil
+        case .english: "en"
+        case .chinese: "zh-Hans"
+        }
+    }
+
+    /// Native-script display label so each option reads in its own language —
+    /// users can recognize "中文" even when the rest of the UI is in English.
+    var displayName: String {
+        switch self {
+        case .system:  "System"
+        case .english: "English"
+        case .chinese: "中文"
+        }
+    }
+
+    /// Locale to apply via SwiftUI's environment — drives number/date
+    /// formatters and a few text-rendering decisions. The string-table
+    /// lookup itself is handled by `LanguageOverride`.
+    var locale: Locale {
+        switch self {
+        case .system:  .current
+        case .english: Locale(identifier: "en_SG")
+        case .chinese: Locale(identifier: "zh_Hans_SG")
+        }
+    }
+}
+
 @Observable
 final class AppState {
     private static let onboardingKey   = "commute.onboardingComplete"
@@ -40,6 +77,7 @@ final class AppState {
     private static let userNameKey      = "commute.userName"
     private static let nearbyOrderKey   = "commute.nearbyOrder"
     private static let collapsedKey     = "commute.collapsedSections"
+    private static let languageKey      = "commute.language"
 
     var hasCompletedOnboarding: Bool {
         didSet { UserDefaults.standard.set(hasCompletedOnboarding, forKey: Self.onboardingKey) }
@@ -80,6 +118,13 @@ final class AppState {
         didSet { Self.encode(Array(collapsedSections), to: Self.collapsedKey) }
     }
 
+    var language: AppLanguage {
+        didSet {
+            UserDefaults.standard.set(language.rawValue, forKey: Self.languageKey)
+            LanguageOverride.apply(languageCode: language.bundleCode)
+        }
+    }
+
     init() {
         let defaults = UserDefaults.standard
         self.hasCompletedOnboarding = defaults.bool(forKey: Self.onboardingKey)
@@ -98,6 +143,9 @@ final class AppState {
         self.nearbyOrder = unique + missing
         let collapsed: [NearbyBlock] = Self.decode(Self.collapsedKey) ?? []
         self.collapsedSections = Set(collapsed)
+        let storedLanguage = defaults.string(forKey: Self.languageKey) ?? AppLanguage.system.rawValue
+        self.language = AppLanguage(rawValue: storedLanguage) ?? .system
+        LanguageOverride.apply(languageCode: language.bundleCode)
     }
 
     func toggleCollapsed(_ block: NearbyBlock) {
@@ -159,6 +207,12 @@ final class AppState {
 
     func cycleColorScheme() {
         colorScheme = colorScheme.next
+    }
+
+    func cycleLanguage() {
+        let all = AppLanguage.allCases
+        let idx = all.firstIndex(of: language) ?? 0
+        language = all[(idx + 1) % all.count]
     }
 
     func resetOnboarding() {

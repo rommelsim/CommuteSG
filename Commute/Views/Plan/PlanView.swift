@@ -287,7 +287,11 @@ struct PlanView: View {
                         HStack(spacing: 6) {
                             Image(systemName: place.kind.symbol)
                                 .font(.system(size: 11, weight: .semibold))
-                            Text("To \(place.label.lowercased())")
+                            // `place.label` is stored as English ("Home" / "Work")
+                            // — pre-localize it via NSLocalizedString so the
+                            // template substitution produces "前往 首页" rather
+                            // than "前往 Home" in Chinese.
+                            Text("To \(NSLocalizedString(place.label, comment: ""))")
                                 .font(.appLabelMedium)
                         }
                         .foregroundStyle(place.kind == .work ? Color.appPurple : Color.appInfo)

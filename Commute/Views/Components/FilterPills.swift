@@ -30,7 +30,10 @@ private struct Pill: View {
 
     var body: some View {
         Button(action: action) {
-            Text(text)
+            // Wrap caller's `text` String through LocalizedStringKey so the
+            // filter labels ("Fastest", etc.) resolve through the catalog
+            // even though they arrive as variables, not literals.
+            Text(LocalizedStringKey(text))
                 .font(.appLabelMedium)
                 .padding(.vertical, 7)
                 .padding(.horizontal, 14)
