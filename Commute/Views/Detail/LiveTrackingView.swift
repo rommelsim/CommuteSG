@@ -369,7 +369,7 @@ struct LiveTrackingView: View {
             .background {
                 if marker == .userBoarding {
                     RoundedRectangle(cornerRadius: 8, style: .continuous)
-                        .fill(Color(hex: 0x0F172A).opacity(0.05))
+                        .fill(Color.cfNowFill.opacity(0.05))
                 }
             }
         }

@@ -56,7 +56,8 @@ struct BusStopDetailView: View {
             VStack(alignment: .leading, spacing: 14) {
                 topBar
                     .padding(.horizontal, 20)
-                    .padding(.top, 8)
+                    .padding(.top, 18)            // breathing room below the notch / status bar
+                    .padding(.bottom, 4)
                 walkPill
                     .padding(.horizontal, 20)
                 miniMap

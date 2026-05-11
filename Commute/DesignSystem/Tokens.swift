@@ -71,43 +71,99 @@ enum MRTLineToken {
 
 extension Color {
     // Page surface
-    static let cfPageBackground = Color(hex: 0xF2F2F5)
+    static let cfPageBackground = Color(
+        light: Color(hex: 0xF2F2F5),
+        dark:  Color(hex: 0x0A0A0C)
+    )
 
-    // Glass card surface (translucent white)
-    static let cfGlassFill          = Color.white.opacity(0.75)
-    static let cfGlassFillStrong    = Color.white.opacity(0.85)
-    static let cfGlassFillSoft      = Color.white.opacity(0.70)
-    static let cfHairline           = Color.black.opacity(0.04)
-    static let cfHairlineStrong     = Color.black.opacity(0.08)
+    // Glass card surface (translucent over the page)
+    static let cfGlassFill = Color(
+        light: Color.white.opacity(0.75),
+        dark:  Color.white.opacity(0.06)
+    )
+    static let cfGlassFillStrong = Color(
+        light: Color.white.opacity(0.85),
+        dark:  Color.white.opacity(0.10)
+    )
+    static let cfGlassFillSoft = Color(
+        light: Color.white.opacity(0.70),
+        dark:  Color.white.opacity(0.05)
+    )
+    static let cfHairline = Color(
+        light: Color.black.opacity(0.04),
+        dark:  Color.white.opacity(0.06)
+    )
+    static let cfHairlineStrong = Color(
+        light: Color.black.opacity(0.08),
+        dark:  Color.white.opacity(0.10)
+    )
 
-    // Text on light surfaces
-    static let cfTextPrimary        = Color.black
-    static let cfTextSecondary      = Color.black.opacity(0.55)
-    static let cfTextTertiary       = Color.black.opacity(0.45)
-    static let cfTextMuted          = Color.black.opacity(0.30)
-    static let cfTextDisabled       = Color.black.opacity(0.20)
+    // Text on light surfaces (auto-flips for dark mode)
+    static let cfTextPrimary = Color(
+        light: Color.black,
+        dark:  Color.white
+    )
+    static let cfTextSecondary = Color(
+        light: Color.black.opacity(0.55),
+        dark:  Color.white.opacity(0.65)
+    )
+    static let cfTextTertiary = Color(
+        light: Color.black.opacity(0.45),
+        dark:  Color.white.opacity(0.55)
+    )
+    static let cfTextMuted = Color(
+        light: Color.black.opacity(0.30),
+        dark:  Color.white.opacity(0.40)
+    )
+    static let cfTextDisabled = Color(
+        light: Color.black.opacity(0.20),
+        dark:  Color.white.opacity(0.25)
+    )
 
-    // Text on dark hero
+    // Text on dark hero (intentionally always-white — hero gradient is dark)
     static let cfOnDarkPrimary      = Color.white
     static let cfOnDarkSecondary    = Color.white.opacity(0.70)
     static let cfOnDarkMuted        = Color.white.opacity(0.55)
     static let cfOnDarkLabel        = Color.white.opacity(0.45)
 
     // Bus service chip
-    static let cfChipFill           = Color.black.opacity(0.05)
-    static let cfChipText           = Color(hex: 0x1F2937)
-    static let cfChipBorder         = Color.black.opacity(0.08)
+    static let cfChipFill = Color(
+        light: Color.black.opacity(0.05),
+        dark:  Color.white.opacity(0.10)
+    )
+    static let cfChipText = Color(
+        light: Color(hex: 0x1F2937),
+        dark:  Color(hex: 0xE5E7EB)
+    )
+    static let cfChipBorder = Color(
+        light: Color.black.opacity(0.08),
+        dark:  Color.white.opacity(0.12)
+    )
     static let cfChipOnDarkFill     = Color.white.opacity(0.95)
     static let cfChipOnDarkText     = Color(hex: 0x0F172A)
 
-    // The dark NOW pill — only fully-dark element in the UI
-    static let cfNowFill            = Color(hex: 0x0F172A)
+    // The dark NOW pill — flips for dark mode so it stays the loudest
+    // contrast element regardless of mode.
+    static let cfNowFill = Color(
+        light: Color(hex: 0x0F172A),
+        dark:  Color(hex: 0xF1F5F9)
+    )
+    static let cfNowText = Color(
+        light: Color.white,
+        dark:  Color(hex: 0x0F172A)
+    )
 
     // Crowd indicator
-    static let cfCrowdFilled        = Color.black.opacity(0.55)
-    static let cfCrowdEmpty         = Color.black.opacity(0.12)
+    static let cfCrowdFilled = Color(
+        light: Color.black.opacity(0.55),
+        dark:  Color.white.opacity(0.65)
+    )
+    static let cfCrowdEmpty = Color(
+        light: Color.black.opacity(0.12),
+        dark:  Color.white.opacity(0.18)
+    )
 
-    // Live / status
+    // Live / status (kept saturated — these are semantic indicators, not surfaces)
     static let cfLiveDot            = Color(hex: 0x16A34A)
     static let cfStatusOk           = Color(hex: 0x15803D)
 }

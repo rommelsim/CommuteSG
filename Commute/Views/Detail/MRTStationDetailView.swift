@@ -14,13 +14,14 @@ struct MRTStationDetailView: View {
 
     var body: some View {
         VStack(spacing: 0) {
+            Spacer().frame(height: 16)            // breathing room below the notch / status bar
             DetailHeader(
                 center: {
                     HStack(spacing: 12) {
                         MRTLinePill(code: station.id)
                         Text(station.name)
                             .font(.appSubTitle)
-                            .foregroundStyle(Color.appText)
+                            .foregroundStyle(Color.cfTextPrimary)
                             .lineLimit(1)
                             .minimumScaleFactor(0.85)
                             .padding(.trailing, 8)
@@ -29,7 +30,7 @@ struct MRTStationDetailView: View {
                 trailing: {
                     IconCircleButton(
                         symbol: isFavorite ? "star.fill" : "star",
-                        foreground: isFavorite ? Color.appAmber : Color.appText
+                        foreground: isFavorite ? Color.appAmber : Color.cfTextPrimary
                     ) {
                         appState.toggleFavoriteLine(station.id)
                     }
@@ -120,10 +121,10 @@ struct MRTStationDetailView: View {
                 VStack(alignment: .leading, spacing: 2) {
                     Text(viewModel.crowdLevel.label)
                         .font(.appCardTitle)
-                        .foregroundStyle(Color.appText)
+                        .foregroundStyle(Color.cfTextPrimary)
                     Text("Updated every 10 min by LTA")
                         .font(.appMicro)
-                        .foregroundStyle(Color.appText3)
+                        .foregroundStyle(Color.cfTextTertiary)
                 }
                 Spacer()
             }
@@ -134,7 +135,7 @@ struct MRTStationDetailView: View {
     private var liftMaintenanceList: some View {
         VStack(spacing: 0) {
             ForEach(Array(viewModel.liftMaintenance.enumerated()), id: \.element.id) { idx, lift in
-                if idx > 0 { Divider().background(Color.appBorder) }
+                if idx > 0 { Divider().background(Color.cfHairline) }
                 HStack(alignment: .top, spacing: 12) {
                     Image(systemName: "exclamationmark.triangle.fill")
                         .font(.system(size: 14))
@@ -143,12 +144,12 @@ struct MRTStationDetailView: View {
                     VStack(alignment: .leading, spacing: 2) {
                         Text(lift.liftDesc)
                             .font(.appBodyMedium)
-                            .foregroundStyle(Color.appText)
+                            .foregroundStyle(Color.cfTextPrimary)
                             .fixedSize(horizontal: false, vertical: true)
                         if lift.id != "\(station.id)-0" {
                             Text("Lift \(lift.id)")
                                 .font(.appMicro)
-                                .foregroundStyle(Color.appText3)
+                                .foregroundStyle(Color.cfTextTertiary)
                         }
                     }
                     Spacer(minLength: 0)
@@ -165,7 +166,7 @@ struct MRTStationDetailView: View {
             VStack(alignment: .leading, spacing: 0) {
                 Text(station.line.fullName)
                     .font(.appCaptionMedium)
-                    .foregroundStyle(Color.appText2)
+                    .foregroundStyle(Color.cfTextSecondary)
                     .padding(.horizontal, 8)
                     .padding(.bottom, 10)
 
@@ -260,7 +261,7 @@ struct MRTStationDetailView: View {
             LiveStatusPill(minutesAgo: 0)
             Text("Live train arrivals, exits and amenities aren't published by LTA.")
                 .font(.appMicro)
-                .foregroundStyle(Color.appText3)
+                .foregroundStyle(Color.cfTextTertiary)
         }
         .padding(.horizontal, Spacing.screen)
     }
@@ -278,13 +279,13 @@ private struct StationNode: View {
             marker
             Text(station.name)
                 .font(.appMicroStrong)
-                .foregroundStyle(isCurrent ? Color.appText : Color.appText2)
+                .foregroundStyle(isCurrent ? Color.cfTextPrimary : Color.cfTextSecondary)
                 .multilineTextAlignment(.center)
                 .lineLimit(2)
                 .padding(.top, 4)
             Text(station.id + (station.interchangeLines.isEmpty ? "" : " · " + station.interchangeLines.map(\.code).joined(separator: " ")))
                 .font(.appMicro)
-                .foregroundStyle(Color.appText3)
+                .foregroundStyle(Color.cfTextTertiary)
         }
         .frame(maxWidth: .infinity)
     }

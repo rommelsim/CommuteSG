@@ -7,8 +7,7 @@ struct SearchView: View {
     /// Detail sheets are presented from within Search itself (sheet-on-sheet)
     /// so the search list stays in place behind the card. Dismissing the
     /// detail returns the user to their search results — they don't lose
-    /// their query or scroll position the way a "dismiss-search-then-present"
-    /// flow would.
+    /// their query or scroll position.
     @State private var stopSheet: StopSheetData?
     @State private var mrtSheet: MRTStation?
     @FocusState private var isFocused: Bool
@@ -16,46 +15,34 @@ struct SearchView: View {
     var body: some View {
         NavigationStack {
             VStack(spacing: 0) {
+                topBar
+                    .padding(.horizontal, 20)
+                    .padding(.top, 16)
+                    .padding(.bottom, 14)
                 searchField
-                    .padding(.horizontal, Spacing.screen)
-                    .padding(.top, 8)
-                    .padding(.bottom, 12)
-                Divider().background(Color.appBorder)
-                resultsList
+                    .padding(.horizontal, 20)
+                    .padding(.bottom, 14)
+                Divider().background(Color.black.opacity(0.06))
+                resultsBody
             }
-            .background(Color.appSurface)
-            .navigationTitle("Search")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .topBarTrailing) {
-                    Button("Cancel") { dismiss() }
-                        .foregroundStyle(Color.appInfo)
-                }
-            }
-            .sheet(item: $stopSheet) { data in
+            .background(Color.white.ignoresSafeArea())
+            .navigationBarHidden(true)
+            .fullScreenCover(item: $stopSheet) { data in
                 NavigationStack {
                     BusStopDetailView(stop: data.stop, initialArrivals: data.arrivals)
                         .navigationDestination(for: HomeRoute.self) { route in
                             destination(for: route)
                         }
                 }
-                .presentationDetents([.medium, .large])
-                .presentationDragIndicator(.visible)
-                .presentationBackground(.thinMaterial)
-                .presentationCornerRadius(28)
                 .environment(appState)
             }
-            .sheet(item: $mrtSheet) { station in
+            .fullScreenCover(item: $mrtSheet) { station in
                 NavigationStack {
                     MRTStationDetailView(station: station)
                         .navigationDestination(for: HomeRoute.self) { route in
                             destination(for: route)
                         }
                 }
-                .presentationDetents([.medium, .large])
-                .presentationDragIndicator(.visible)
-                .presentationBackground(.thinMaterial)
-                .presentationCornerRadius(28)
                 .environment(appState)
             }
         }
@@ -82,74 +69,101 @@ struct SearchView: View {
         }
     }
 
+    // MARK: - Top bar (custom, not NavigationBar)
+
+    private var topBar: some View {
+        ZStack {
+            Text("Search")
+                .font(.appSubTitle)
+                .foregroundStyle(Color.cfTextPrimary)
+            HStack {
+                Spacer()
+                Button { dismiss() } label: {
+                    Text("Cancel")
+                        .font(.appBodyMedium)
+                        .foregroundStyle(Color.appInfo)
+                        .padding(.horizontal, 18)
+                        .padding(.vertical, 10)
+                        .background(Color.white, in: Capsule())
+                        .overlay(Capsule().strokeBorder(Color.black.opacity(0.04), lineWidth: 0.5))
+                        .shadow(color: .black.opacity(0.06), radius: 4, y: 2)
+                }
+                .buttonStyle(.plain)
+            }
+        }
+    }
+
+    // MARK: - Search field
+
     private var searchField: some View {
         HStack(spacing: 10) {
             Image(systemName: "magnifyingglass")
-                .font(.system(size: 16, weight: .medium))
-                .foregroundStyle(Color.appText2)
+                .font(.system(size: 14, weight: .medium))
+                .foregroundStyle(Color.black.opacity(0.50))
             TextField("Stop code, station name, or road", text: $viewModel.query)
                 .focused($isFocused)
                 .submitLabel(.search)
                 .textInputAutocapitalization(.never)
                 .autocorrectionDisabled(true)
-                .font(.appBody)
+                .font(.appBodyMedium)
+                .foregroundStyle(Color.cfTextPrimary)
             if !viewModel.query.isEmpty {
                 Button { viewModel.query = "" } label: {
                     Image(systemName: "xmark.circle.fill")
                         .font(.system(size: 16))
-                        .foregroundStyle(Color.appText3)
+                        .foregroundStyle(Color.black.opacity(0.30))
                 }
                 .buttonStyle(.plain)
             }
         }
-        .padding(.vertical, 10)
+        .padding(.vertical, 12)
         .padding(.horizontal, 14)
-        .background(Color.appSurface2)
-        .clipShape(RoundedRectangle(cornerRadius: Radius.card, style: .continuous))
+        .background(Color(hex: 0xEFEAE0).opacity(0.55), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
     }
 
+    // MARK: - Results body
+
     @ViewBuilder
-    private var resultsList: some View {
+    private var resultsBody: some View {
         if viewModel.query.trimmingCharacters(in: .whitespaces).isEmpty {
             emptyState
-        } else if viewModel.busStopResults.isEmpty && viewModel.mrtResults.isEmpty {
+        } else if viewModel.busStopResults.isEmpty
+                    && viewModel.mrtResults.isEmpty
+                    && viewModel.addressResults.isEmpty {
             ContentUnavailableView.search(text: viewModel.query)
         } else {
-            List {
-                if !viewModel.mrtResults.isEmpty {
-                    Section("MRT stations") {
-                        ForEach(viewModel.mrtResults) { station in
-                            Button {
-                                mrtSheet = station
-                            } label: {
-                                MRTResultRow(station: station)
+            ScrollView {
+                VStack(spacing: 0) {
+                    if !viewModel.mrtResults.isEmpty {
+                        sectionHeader("MRT stations")
+                        ForEach(Array(viewModel.mrtResults.enumerated()), id: \.element.id) { idx, station in
+                            mrtRow(station)
+                            if idx < viewModel.mrtResults.count - 1 {
+                                rowDivider
                             }
-                            .buttonStyle(.plain)
                         }
+                        sectionFooter
+                    }
+                    if !viewModel.busStopResults.isEmpty {
+                        sectionHeader("Bus stops")
+                        ForEach(Array(viewModel.busStopResults.enumerated()), id: \.element.id) { idx, stop in
+                            busStopRow(stop)
+                            if idx < viewModel.busStopResults.count - 1 {
+                                rowDivider
+                            }
+                        }
+                        sectionFooter
                     }
                 }
-                if !viewModel.busStopResults.isEmpty {
-                    Section("Bus stops") {
-                        ForEach(viewModel.busStopResults) { stop in
-                            Button {
-                                stopSheet = StopSheetData(stop: stop, arrivals: [])
-                            } label: {
-                                BusStopResultRow(stop: stop)
-                            }
-                            .buttonStyle(.plain)
-                        }
-                    }
-                }
+                .padding(.bottom, 40)
             }
-            .listStyle(.plain)
-            .scrollContentBackground(.hidden)
-            .background(Color.appSurface)
+            .scrollIndicators(.hidden)
         }
     }
 
     private var emptyState: some View {
         VStack {
-            Spacer().frame(height: 24)
+            Spacer().frame(height: 32)
             EmptyStateView(
                 symbol: "magnifyingglass",
                 title: "Find a bus stop or MRT station",
@@ -160,69 +174,121 @@ struct SearchView: View {
         }
         .frame(maxWidth: .infinity)
     }
-}
 
-private struct MRTResultRow: View {
-    let station: MRTStation
+    private func sectionHeader(_ title: String) -> some View {
+        Text(title.uppercased())
+            .font(.appCaptionStrong)
+            .tracking(0.6)
+            .foregroundStyle(Color.black.opacity(0.50))
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.horizontal, 20)
+            .padding(.top, 24)
+            .padding(.bottom, 8)
+    }
 
-    var body: some View {
-        HStack(spacing: 12) {
-            LineBadge(line: station.line, code: station.id, emphasized: false)
-            VStack(alignment: .leading, spacing: 2) {
-                Text(station.name)
-                    .font(.appBodyMedium)
-                    .foregroundStyle(Color.appText)
-                Text(station.line.fullName)
-                    .font(.appCaption)
-                    .foregroundStyle(Color.appText2)
+    private var sectionFooter: some View {
+        Spacer().frame(height: 4)
+    }
+
+    private var rowDivider: some View {
+        Divider()
+            .background(Color.black.opacity(0.06))
+            .padding(.horizontal, 20)
+    }
+
+    // MARK: - MRT row
+
+    private func mrtRow(_ station: MRTStation) -> some View {
+        Button { mrtSheet = station } label: {
+            HStack(spacing: 12) {
+                MRTCodePill(code: station.id)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(station.name)
+                        .font(.appSubTitle)
+                        .foregroundStyle(Color.cfTextPrimary)
+                        .lineLimit(1)
+                    Text(station.line.fullName)
+                        .font(.appCaption)
+                        .foregroundStyle(Color.black.opacity(0.50))
+                        .lineLimit(1)
+                }
+                Spacer(minLength: 8)
+                if let m = station.distanceMeters {
+                    Text(distanceLabel(m))
+                        .font(.appLabelMedium)
+                        .monospacedDigit()
+                        .foregroundStyle(Color.black.opacity(0.45))
+                }
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundStyle(Color.black.opacity(0.30))
             }
-            Spacer()
-            if let m = station.distanceMeters {
-                Text(distanceLabel(m))
-                    .font(.appMicro)
-                    .foregroundStyle(Color.appText3)
-            }
-            Image(systemName: "chevron.right")
-                .font(.system(size: 12, weight: .semibold))
-                .foregroundStyle(Color.appText3)
+            .padding(.horizontal, 20)
+            .padding(.vertical, 12)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .contentShape(Rectangle())
         }
-        .padding(.vertical, 6)
-        .contentShape(Rectangle())
+        .buttonStyle(.plain)
+    }
+
+    // MARK: - Bus stop row
+
+    private func busStopRow(_ stop: BusStop) -> some View {
+        Button { stopSheet = StopSheetData(stop: stop, arrivals: []) } label: {
+            HStack(spacing: 12) {
+                Image(systemName: "bus.fill")
+                    .font(.system(size: 16, weight: .medium))
+                    .foregroundStyle(Color.black.opacity(0.55))
+                    .frame(width: 36, height: 36)
+                    .background(Color.black.opacity(0.05), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(stop.name)
+                        .font(.appSubTitle)
+                        .foregroundStyle(Color.cfTextPrimary)
+                        .lineLimit(1)
+                    Text("\(stop.id) · \(stop.road)")
+                        .font(.appCaption)
+                        .foregroundStyle(Color.black.opacity(0.50))
+                        .lineLimit(1)
+                }
+                Spacer(minLength: 8)
+                if let m = stop.distanceMeters {
+                    Text(distanceLabel(m))
+                        .font(.appLabelMedium)
+                        .monospacedDigit()
+                        .foregroundStyle(Color.black.opacity(0.45))
+                }
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundStyle(Color.black.opacity(0.30))
+            }
+            .padding(.horizontal, 20)
+            .padding(.vertical, 10)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
     }
 }
 
-private struct BusStopResultRow: View {
-    let stop: BusStop
+// MARK: - MRT code pill (saturated, used only for MRT line ID)
+
+private struct MRTCodePill: View {
+    let code: String
+
+    private var lineColor: Color {
+        MRTLineToken.from(code: code)?.color ?? .gray
+    }
 
     var body: some View {
-        HStack(spacing: 12) {
-            Image(systemName: "bus.fill")
-                .font(.system(size: 14, weight: .medium))
-                .foregroundStyle(Color.appText2)
-                .frame(width: 28, height: 28)
-                .background(Color.appSurface2)
-                .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
-            VStack(alignment: .leading, spacing: 2) {
-                Text(stop.name)
-                    .font(.appBodyMedium)
-                    .foregroundStyle(Color.appText)
-                Text("\(stop.id) · \(stop.road)")
-                    .font(.appCaption)
-                    .foregroundStyle(Color.appText2)
-                    .lineLimit(1)
-            }
-            Spacer()
-            if let m = stop.distanceMeters {
-                Text(distanceLabel(m))
-                    .font(.appMicro)
-                    .foregroundStyle(Color.appText3)
-            }
-            Image(systemName: "chevron.right")
-                .font(.system(size: 12, weight: .semibold))
-                .foregroundStyle(Color.appText3)
-        }
-        .padding(.vertical, 6)
-        .contentShape(Rectangle())
+        Text(code)
+            .font(.appCaptionStrong)
+            .monospacedDigit()
+            .tracking(0.3)
+            .foregroundStyle(.white)
+            .padding(.horizontal, 8)
+            .frame(height: 24)
+            .background(lineColor, in: RoundedRectangle(cornerRadius: 6, style: .continuous))
     }
 }
 

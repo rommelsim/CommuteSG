@@ -159,14 +159,27 @@ final class AppState {
     func setSavedPlaceAddress(_ kind: SavedPlace.Kind, address: String) {
         let trimmed = address.trimmingCharacters(in: .whitespacesAndNewlines)
         let label = kind == .home ? "Home" : (kind == .work ? "Work" : "Place")
+        let previous = savedPlaces.first(where: { $0.kind == kind })?.address ?? ""
+
         if let idx = savedPlaces.firstIndex(where: { $0.kind == kind }) {
             savedPlaces[idx].address = trimmed
         } else {
             savedPlaces.append(SavedPlace(kind: kind, label: label, address: trimmed))
         }
-        SoundEffect.playSuccess()
-        Task { @MainActor in
-            ToastCenter.shared.show(.success("\(label) address saved"))
+
+        // Three cases for the toast:
+        //   - new/changed value → "saved" success
+        //   - cleared an existing value → "removed" info
+        //   - empty save when nothing was set → no toast (nothing happened)
+        if !trimmed.isEmpty {
+            SoundEffect.playSuccess()
+            Task { @MainActor in
+                ToastCenter.shared.show(.success("\(label) address saved"))
+            }
+        } else if !previous.isEmpty {
+            Task { @MainActor in
+                ToastCenter.shared.show(.info("\(label) address removed"))
+            }
         }
     }
 

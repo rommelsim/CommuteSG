@@ -56,14 +56,10 @@ struct HomeView: View {
                 destination(for: route)
             }
             .sheet(item: $editingPlace) { kind in
-                PlaceEditorSheet(kind: kind) { saved in
-                    if !saved.isEmpty {
-                        appState.pendingPlanDestination = saved
-                        selectedTab = .plan
-                    }
-                }
-                .environment(appState)
-                .presentationDetents([.height(260)])
+                // Editor is purely "set the address". After save, stay on
+                // Home — the user can tap the shortcut later to plan a trip.
+                PlaceEditorSheet(kind: kind)
+                    .environment(appState)
             }
             .sheet(isPresented: $showingSearch) {
                 SearchView()
@@ -84,30 +80,22 @@ struct HomeView: View {
                 .environment(appState)
                 .presentationDetents([.large, .medium])
             }
-            .sheet(item: $stopSheet) { data in
+            .fullScreenCover(item: $stopSheet) { data in
                 NavigationStack {
                     BusStopDetailView(stop: data.stop, initialArrivals: data.arrivals)
                         .navigationDestination(for: HomeRoute.self) { route in
                             destination(for: route)
                         }
                 }
-                .presentationDetents([.medium, .large])
-                .presentationDragIndicator(.visible)
-                .presentationBackground(.thinMaterial)
-                .presentationCornerRadius(28)
                 .environment(appState)
             }
-            .sheet(item: $mrtSheet) { station in
+            .fullScreenCover(item: $mrtSheet) { station in
                 NavigationStack {
                     MRTStationDetailView(station: station)
                         .navigationDestination(for: HomeRoute.self) { route in
                             destination(for: route)
                         }
                 }
-                .presentationDetents([.medium, .large])
-                .presentationDragIndicator(.visible)
-                .presentationBackground(.thinMaterial)
-                .presentationCornerRadius(28)
                 .environment(appState)
             }
         }

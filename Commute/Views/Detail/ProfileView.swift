@@ -18,7 +18,7 @@ struct ProfileView: View {
                 center: {
                     Text("Profile")
                         .font(.appSubTitle)
-                        .foregroundStyle(Color.appText)
+                        .foregroundStyle(Color.cfTextPrimary)
                         .frame(maxWidth: .infinity, alignment: .center)
                 },
                 trailing: {
@@ -70,15 +70,15 @@ struct ProfileView: View {
                 VStack(alignment: .leading, spacing: 2) {
                     Text(displayName)
                         .font(.appSection)
-                        .foregroundStyle(Color.appText)
+                        .foregroundStyle(Color.cfTextPrimary)
                     Text("Tap to edit")
                         .font(.appCaption)
-                        .foregroundStyle(Color.appText2)
+                        .foregroundStyle(Color.cfTextSecondary)
                 }
                 Spacer()
                 Image(systemName: "chevron.right")
                     .font(.system(size: 14, weight: .semibold))
-                    .foregroundStyle(Color.appText3)
+                    .foregroundStyle(Color.cfTextTertiary)
             }
             .padding(16)
             .background(Color.appSurface2)
@@ -140,12 +140,12 @@ struct ProfileView: View {
             Button {
                 appState.cycleColorScheme()
             } label: {
-                ListRow(symbol: "moon.fill", symbolTint: Color.appText2, label: "Dark mode", value: appState.colorScheme.label)
+                ListRow(symbol: "moon.fill", symbolTint: Color.cfTextSecondary, label: "Dark mode", value: appState.colorScheme.label)
             }
             .buttonStyle(.plain)
             .sensoryFeedback(.selection, trigger: appState.colorScheme)
 
-            ListRow(symbol: "bell.fill", symbolTint: Color.appText2, label: "Notifications") {
+            ListRow(symbol: "bell.fill", symbolTint: Color.cfTextSecondary, label: "Notifications") {
                 ToggleSwitch(isOn: Binding(get: { appState.notificationsEnabled }, set: { appState.notificationsEnabled = $0 }))
             }
 
@@ -154,7 +154,7 @@ struct ProfileView: View {
             } label: {
                 ListRow(
                     symbol: "globe",
-                    symbolTint: Color.appText2,
+                    symbolTint: Color.cfTextSecondary,
                     label: "Language",
                     value: appState.language.displayName
                 )
@@ -170,7 +170,7 @@ struct ProfileView: View {
             Button {
                 showingOnboarding = true
             } label: {
-                ListRow(symbol: "sparkles", symbolTint: Color.appText2, label: "Replay onboarding", chevron: true)
+                ListRow(symbol: "sparkles", symbolTint: Color.cfTextSecondary, label: "Replay onboarding", chevron: true)
             }
             .buttonStyle(.plain)
 
@@ -186,7 +186,7 @@ struct ProfileView: View {
                 Text("Add a mail account in Settings, or email \(bugReportRecipient) from another device.")
             }
 
-            ListRow(symbol: "info.circle.fill", symbolTint: Color.appText2, label: "App version", value: "1.0")
+            ListRow(symbol: "info.circle.fill", symbolTint: Color.cfTextSecondary, label: "App version", value: "1.0")
         }
         .padding(.horizontal, Spacing.screen)
     }
@@ -297,7 +297,7 @@ private struct ListGroup<Content: View>: View {
         .background(Color.appSurface)
         .overlay(
             RoundedRectangle(cornerRadius: Radius.card, style: .continuous)
-                .stroke(Color.appBorder, lineWidth: 0.5)
+                .stroke(Color.cfHairline, lineWidth: 0.5)
         )
         .clipShape(RoundedRectangle(cornerRadius: Radius.card, style: .continuous))
     }
@@ -340,12 +340,12 @@ private struct ListRow<Trailing: View>: View {
             // the value renders verbatim — harmless.
             Text(LocalizedStringKey(label))
                 .font(.appBodyMedium)
-                .foregroundStyle(Color.appText)
+                .foregroundStyle(Color.cfTextPrimary)
             Spacer()
             if let value {
                 Text(LocalizedStringKey(value))
                     .font(.appCaption)
-                    .foregroundStyle(Color.appText2)
+                    .foregroundStyle(Color.cfTextSecondary)
                     .lineLimit(1)
                     .truncationMode(.tail)
             }
@@ -353,7 +353,7 @@ private struct ListRow<Trailing: View>: View {
             if chevron {
                 Image(systemName: "chevron.right")
                     .font(.system(size: 13, weight: .semibold))
-                    .foregroundStyle(Color.appText3)
+                    .foregroundStyle(Color.cfTextTertiary)
             }
         }
         .padding(14)
@@ -361,7 +361,7 @@ private struct ListRow<Trailing: View>: View {
         .background(Color.appSurface)
         .overlay(
             Rectangle()
-                .fill(Color.appBorder)
+                .fill(Color.cfHairline)
                 .frame(height: 0.5),
             alignment: .top
         )
