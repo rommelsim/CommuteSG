@@ -242,14 +242,19 @@ final class MockDataService {
         originHint: CLLocationCoordinate2D?,
         mrtRepo: MRTStationsRepository
     ) -> CLLocationCoordinate2D {
-        if input.localizedCaseInsensitiveCompare("Current location") == .orderedSame,
-           let hint = originHint {
-            return hint
-        }
+        // MRT name match wins — picking "Bedok MRT" should anchor to the
+        // station even if a stale GPS hint is also present.
         if let s = matched, let c = mrtRepo.coordinate(for: s.id) {
             return c
         }
-        // Fallback: Clementi (matches the demo's nearby data).
+        // Otherwise honor the caller's coordinate hint. This covers two cases:
+        // "Current location" (hint = GPS) and any geocoded address pick
+        // (hint = postal-code / road coord). Without this the planner
+        // collapses every non-MRT origin to Clementi, making all routes look
+        // identical regardless of what the user typed.
+        if let hint = originHint {
+            return hint
+        }
         return CLLocationCoordinate2D(latitude: 1.31495, longitude: 103.76506)
     }
 

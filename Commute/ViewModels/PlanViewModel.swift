@@ -48,12 +48,20 @@ final class PlanViewModel {
     static let defaultFrom = "Current location"
     static let defaultTo = "Marina Bay Sands"
 
-    var fromText: String = PlanViewModel.defaultFrom {
+    private(set) var fromText: String = PlanViewModel.defaultFrom {
         didSet { if oldValue != fromText { recompute() } }
     }
-    var toText: String = PlanViewModel.defaultTo {
+    private(set) var toText: String = PlanViewModel.defaultTo {
         didSet { if oldValue != toText { recompute() } }
     }
+    /// Coordinate for `fromText` when known (e.g. picked from a geocoded
+    /// address). Lets the planner produce real durations instead of falling
+    /// back to a fixed Clementi origin for unrecognized addresses.
+    private(set) var fromCoordinate: CLLocationCoordinate2D?
+    /// Coordinate for `toText` when known. Same rationale as above —
+    /// otherwise non-MRT destinations all collapse to a Marina Bay fallback
+    /// and produce identical routes regardless of what the user typed.
+    private(set) var toCoordinate: CLLocationCoordinate2D?
     var filter: Filter = .fastest
     var departureMode: DepartureMode = .now
     private(set) var rawOptions: [JourneyOption]
@@ -81,17 +89,38 @@ final class PlanViewModel {
         )
     }
 
+    /// Update the From field's text + coordinate atomically. Pass `coordinate`
+    /// when the value came from a geocoded address result so the planner can
+    /// use a real origin; pass nil for free-text or saved-place strings.
+    func setFrom(_ text: String, coordinate: CLLocationCoordinate2D? = nil) {
+        // Set coordinate first so the didSet on `fromText` triggers recompute()
+        // with the new coord already in place.
+        fromCoordinate = coordinate
+        fromText = text
+    }
+
+    /// Same as `setFrom`, for the To field.
+    func setTo(_ text: String, coordinate: CLLocationCoordinate2D? = nil) {
+        toCoordinate = coordinate
+        toText = text
+    }
+
     func swap() {
-        let oldFrom = fromText
-        let oldTo = toText
-        fromText = oldTo
-        toText = oldFrom
+        let fT = fromText, fC = fromCoordinate
+        let tT = toText,   tC = toCoordinate
+        setFrom(tT, coordinate: tC)
+        setTo(fT, coordinate: fC)
     }
 
     func recompute() {
-        let originHint = LocationService.shared.lastLocation?.coordinate
+        let origin = fromCoordinate ?? LocationService.shared.lastLocation?.coordinate
         withAnimation(.smooth(duration: 0.25)) {
-            rawOptions = mock.journeyOptions(from: fromText, to: toText, originHint: originHint)
+            rawOptions = mock.journeyOptions(
+                from: fromText,
+                to: toText,
+                originHint: origin,
+                destinationHint: toCoordinate
+            )
         }
     }
 

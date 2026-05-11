@@ -40,7 +40,7 @@ struct PlanView: View {
             }
             .scrollIndicators(.hidden)
             .background(Color.appSurface)
-            .navigationTitle("Plan journey")
+            .navigationTitle("Planner")
             .navigationBarTitleDisplayMode(.large)
             .navigationDestination(for: HomeRoute.self) { route in
                 destination(for: route)
@@ -49,10 +49,10 @@ struct PlanView: View {
                 JourneyPickerSheet(
                     field: field,
                     initialText: field == .from ? viewModel.fromText : viewModel.toText
-                ) { picked in
+                ) { picked, coord in
                     switch field {
-                    case .from: viewModel.fromText = picked
-                    case .to:   viewModel.toText = picked
+                    case .from: viewModel.setFrom(picked, coordinate: coord)
+                    case .to:   viewModel.setTo(picked, coordinate: coord)
                     }
                 }
                 .environment(appState)
@@ -64,7 +64,7 @@ struct PlanView: View {
             }
             .onChange(of: appState.pendingPlanDestination) { _, newValue in
                 if let target = newValue?.trimmingCharacters(in: .whitespaces), !target.isEmpty {
-                    viewModel.toText = target
+                    viewModel.setTo(target)
                     appState.pendingPlanDestination = nil
                     navigation.popToRoot()
                 }
@@ -72,7 +72,7 @@ struct PlanView: View {
             .task {
                 if let target = appState.pendingPlanDestination?
                     .trimmingCharacters(in: .whitespaces), !target.isEmpty {
-                    viewModel.toText = target
+                    viewModel.setTo(target)
                     appState.pendingPlanDestination = nil
                 }
             }
@@ -282,7 +282,7 @@ struct PlanView: View {
             HStack(spacing: 8) {
                 ForEach(quickDestinations) { place in
                     Button {
-                        viewModel.toText = place.address
+                        viewModel.setTo(place.address)
                     } label: {
                         HStack(spacing: 6) {
                             Image(systemName: place.kind.symbol)

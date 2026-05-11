@@ -1,4 +1,5 @@
 import SwiftUI
+import CoreLocation
 
 struct JourneyPickerSheet: View {
     enum Field: Identifiable, Hashable {
@@ -33,7 +34,11 @@ struct JourneyPickerSheet: View {
 
     let field: Field
     let initialText: String
-    let onPick: (String) -> Void
+    /// Callback fired when the user picks a value. The optional coordinate is
+    /// non-nil only for geocoded address results and bus stops — places where
+    /// we know the real lat/lon. The Plan view passes this through to the
+    /// journey planner so non-MRT destinations produce accurate durations.
+    let onPick: (String, CLLocationCoordinate2D?) -> Void
 
     var body: some View {
         @Bindable var search = search
@@ -143,7 +148,7 @@ struct JourneyPickerSheet: View {
                         VStack(spacing: 0) {
                             ForEach(search.addressResults) { addr in
                                 Button {
-                                    pick(addr.displayValue)
+                                    pick(addr.displayValue, coordinate: addr.coordinate)
                                 } label: {
                                     addressRow(addr)
                                 }
@@ -175,7 +180,7 @@ struct JourneyPickerSheet: View {
                         VStack(spacing: 0) {
                             ForEach(search.busStopResults) { stop in
                                 Button {
-                                    pick(stop.name)
+                                    pick(stop.name, coordinate: stop.coordinate)
                                 } label: {
                                     busStopRow(stop: stop)
                                 }
@@ -415,8 +420,8 @@ struct JourneyPickerSheet: View {
         .buttonStyle(.plain)
     }
 
-    private func pick(_ value: String) {
-        onPick(value)
+    private func pick(_ value: String, coordinate: CLLocationCoordinate2D? = nil) {
+        onPick(value, coordinate)
         dismiss()
     }
 
