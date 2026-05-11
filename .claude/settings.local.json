@@ -10,7 +10,11 @@
       "Bash(git push *)",
       "Bash(command -v gh)",
       "Bash(gh auth *)",
-      "Bash(ssh -T git@github.com -o StrictHostKeyChecking=no -o BatchMode=yes)"
+      "Bash(ssh -T git@github.com -o StrictHostKeyChecking=no -o BatchMode=yes)",
+      "Bash(sips -g all Commute/Assets.xcassets/AppIcon.appiconset/AppIcon-1024.png)",
+      "Bash(sips -g profile Commute/Assets.xcassets/AppIcon.appiconset/AppIcon-1024.png)",
+      "Bash(pngcheck -v Commute/Assets.xcassets/AppIcon.appiconset/AppIcon-1024.png)",
+      "Bash(xxd Commute/Assets.xcassets/AppIcon.appiconset/AppIcon-1024.png)"
     ]
   }
 }

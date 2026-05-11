@@ -18,4 +18,4 @@ A fast, focused way to get around Singapore. Real-time MRT and bus arrivals from
 
 Commute is built and operated independently. Transit data comes from the Singapore Land Transport Authority's DataMall API. Map tiles come from Apple Maps.
 
-Contact: rommelsim@gmail.com
+Contact: commute688@gmail.com

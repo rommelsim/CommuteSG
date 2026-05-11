@@ -8,7 +8,7 @@ description: Help and contact for the Commute iOS app.
 Need help with Commute?
 
 ## Contact
-Email: rommelsim@gmail.com
+Email: commute688@gmail.com
 
 We aim to reply within 2-3 business days.
 

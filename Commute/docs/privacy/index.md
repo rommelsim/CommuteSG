@@ -47,4 +47,4 @@ If material changes are made, the effective date at the top will be updated. The
 
 ## Contact
 
-Questions about this policy or the data Commute handles? Email rommelsim@gmail.com.
+Questions about this policy or the data Commute handles? Email commute688@gmail.com.
