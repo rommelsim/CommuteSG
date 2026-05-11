@@ -1,0 +1,58 @@
+import SwiftUI
+
+enum MainTab: Hashable, CaseIterable {
+    case home, plan, fares, alerts
+
+    var label: String {
+        switch self {
+        case .home:   "Home"
+        case .plan:   "Plan"
+        case .fares:  "Fares"
+        case .alerts: "Alerts"
+        }
+    }
+
+    var symbol: String {
+        switch self {
+        case .home:   "house.fill"
+        case .plan:   "point.topleft.down.curvedto.point.bottomright.up"
+        case .fares:  "function"
+        case .alerts: "bell.fill"
+        }
+    }
+}
+
+struct MainTabView: View {
+    @State private var selection: MainTab = .home
+    /// Lifted to the tab-bar level so the Alerts badge can reflect the real
+    /// live disruption count, and so the data is fetched even before the user
+    /// opens the Alerts tab.
+    @State private var alertsViewModel = AlertsViewModel()
+
+    var body: some View {
+        // iOS 26 renders the standard `TabView` as a floating Liquid Glass
+        // capsule automatically — selected tab gets a filled inner pill and
+        // the bar floats over content. No explicit glass modifier is needed
+        // (or supported) on the legacy `.tabItem` API used here for iOS 17
+        // compatibility.
+        TabView(selection: $selection) {
+            HomeView(selectedTab: $selection)
+                .tabItem { Label(MainTab.home.label, systemImage: MainTab.home.symbol) }
+                .tag(MainTab.home)
+
+            PlanView()
+                .tabItem { Label(MainTab.plan.label, systemImage: MainTab.plan.symbol) }
+                .tag(MainTab.plan)
+
+            FaresView()
+                .tabItem { Label(MainTab.fares.label, systemImage: MainTab.fares.symbol) }
+                .tag(MainTab.fares)
+
+            AlertsView(viewModel: alertsViewModel)
+                .tabItem { Label(MainTab.alerts.label, systemImage: MainTab.alerts.symbol) }
+                .tag(MainTab.alerts)
+                .badge(alertsViewModel.disruptions.count)
+        }
+        .task { await alertsViewModel.refresh() }
+    }
+}
