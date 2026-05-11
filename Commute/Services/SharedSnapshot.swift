@@ -25,6 +25,47 @@ public struct MRTStatusSnapshot: Codable, Hashable {
     }
 }
 
+/// Snapshot of the Home screen "Next out the door" hero card. Mirrors the
+/// shape of `HeroContext` so the widget can render an identical-looking
+/// dark gradient card without re-running the full journey-suggester logic.
+public struct NextOutTheDoorSnapshot: Codable, Hashable {
+    public enum TimeContext: String, Codable {
+        case morning, midday, evening, night, weekend
+    }
+    public let timeContext: TimeContext
+    public let labelTop: String          // "NEXT OUT THE DOOR" / "RIGHT NOW" / etc.
+    public let headline: String          // "Walk now", "Catch this for work"
+    public let bus: String?              // "282", nil when no journey suggested
+    public let etaMinutes: Int?
+    public let slack: String?            // "1 min to spare"
+    public let destination: String?      // "Clementi"
+    public let destinationLabel: String? // "Home" / "Work"
+    public let fromStop: String?         // "Blk 355"
+    public let totalTripMinutes: Int?
+    public let arriveByLabel: String?    // "9:02 pm"
+    public let updatedAt: Date
+
+    public init(
+        timeContext: TimeContext, labelTop: String, headline: String,
+        bus: String?, etaMinutes: Int?, slack: String?,
+        destination: String?, destinationLabel: String?, fromStop: String?,
+        totalTripMinutes: Int?, arriveByLabel: String?, updatedAt: Date
+    ) {
+        self.timeContext = timeContext
+        self.labelTop = labelTop
+        self.headline = headline
+        self.bus = bus
+        self.etaMinutes = etaMinutes
+        self.slack = slack
+        self.destination = destination
+        self.destinationLabel = destinationLabel
+        self.fromStop = fromStop
+        self.totalTripMinutes = totalTripMinutes
+        self.arriveByLabel = arriveByLabel
+        self.updatedAt = updatedAt
+    }
+}
+
 public enum SharedSnapshot {
     /// App Group identifier. Override via Info.plist if needed.
     public static let appGroupID: String = {
@@ -33,6 +74,7 @@ public enum SharedSnapshot {
     }()
 
     private static let mrtKey = "snapshot.mrtStatus.v1"
+    private static let nextOutKey = "snapshot.nextOutTheDoor.v1"
 
     public static func writeMRT(_ snapshot: MRTStatusSnapshot) {
         guard let store = UserDefaults(suiteName: appGroupID),
@@ -44,5 +86,55 @@ public enum SharedSnapshot {
         guard let store = UserDefaults(suiteName: appGroupID),
               let data = store.data(forKey: mrtKey) else { return nil }
         return try? JSONDecoder().decode(MRTStatusSnapshot.self, from: data)
+    }
+
+    public static func writeNextOutTheDoor(_ snapshot: NextOutTheDoorSnapshot) {
+        guard let store = UserDefaults(suiteName: appGroupID),
+              let data = try? JSONEncoder().encode(snapshot) else { return }
+        store.set(data, forKey: nextOutKey)
+    }
+
+    public static func readNextOutTheDoor() -> NextOutTheDoorSnapshot? {
+        guard let store = UserDefaults(suiteName: appGroupID),
+              let data = store.data(forKey: nextOutKey) else { return nil }
+        return try? JSONDecoder().decode(NextOutTheDoorSnapshot.self, from: data)
+    }
+
+    // MARK: - Pinned items
+
+    private static let pinnedKey = "snapshot.pinned.v1"
+
+    public static func writePinned(_ snapshot: PinnedItemsSnapshot) {
+        guard let store = UserDefaults(suiteName: appGroupID),
+              let data = try? JSONEncoder().encode(snapshot) else { return }
+        store.set(data, forKey: pinnedKey)
+    }
+
+    public static func readPinned() -> PinnedItemsSnapshot? {
+        guard let store = UserDefaults(suiteName: appGroupID),
+              let data = store.data(forKey: pinnedKey) else { return nil }
+        return try? JSONDecoder().decode(PinnedItemsSnapshot.self, from: data)
+    }
+}
+
+/// Snapshot of the user's pinned (starred) bus stops and bus service
+/// numbers, written by the main app whenever the favorites set changes.
+public struct PinnedItemsSnapshot: Codable, Hashable {
+    public struct Stop: Codable, Hashable {
+        public let code: String
+        public let name: String
+        public init(code: String, name: String) {
+            self.code = code
+            self.name = name
+        }
+    }
+    public let stops: [Stop]
+    public let busNumbers: [String]
+    public let updatedAt: Date
+
+    public init(stops: [Stop], busNumbers: [String], updatedAt: Date) {
+        self.stops = stops
+        self.busNumbers = busNumbers
+        self.updatedAt = updatedAt
     }
 }

@@ -1,4 +1,5 @@
 import SwiftUI
+import WidgetKit
 
 struct HomeView: View {
     @Environment(AppState.self) private var appState
@@ -290,7 +291,7 @@ struct HomeView: View {
     @ViewBuilder
     private var pinnedStopsSection: some View {
         if !pinnedStops.isEmpty || !pinnedBusNumbers.isEmpty {
-            VStack(alignment: .leading, spacing: 10) {
+            VStack(alignment: .leading, spacing: 12) {
                 HStack(spacing: 6) {
                     Image(systemName: "star.fill")
                         .font(.system(size: 11, weight: .bold))
@@ -299,58 +300,83 @@ struct HomeView: View {
                         .font(.system(size: 14, weight: .bold))
                         .foregroundStyle(Color.cfTextPrimary)
                 }
-                ScrollView(.horizontal, showsIndicators: false) {
-                    HStack(spacing: 8) {
-                        // Buses first (most compact, action-oriented).
+
+                if !pinnedBusNumbers.isEmpty {
+                    pinnedSubsection(label: "Buses") {
                         ForEach(pinnedBusNumbers, id: \.self) { number in
                             pinnedBusChip(number)
                         }
+                    }
+                }
+
+                if !pinnedStops.isEmpty {
+                    pinnedSubsection(label: "Stops") {
                         ForEach(pinnedStops) { stop in
                             pinnedStopChip(stop)
                         }
                     }
                 }
-                .scrollClipDisabled()
             }
             .padding(.top, 4)
         }
     }
+
+    /// One labelled sub-section inside the Pinned area. Uppercase caption
+    /// label (matches the CM section-header style) above a horizontal scroll
+    /// of chips.
+    @ViewBuilder
+    private func pinnedSubsection<Content: View>(
+        label: String,
+        @ViewBuilder _ content: () -> Content
+    ) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text(label.uppercased())
+                .font(.system(size: 10, weight: .bold))
+                .tracking(0.8)
+                .foregroundStyle(Color.cfTextTertiary)
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 8) {
+                    content()
+                }
+            }
+            .scrollClipDisabled()
+        }
+    }
+
+    /// Visual height shared by every pinned chip so buses and stops read as
+    /// peers in the horizontal rail.
+    private let pinnedChipHeight: CGFloat = 44
 
     private func pinnedStopChip(_ stop: BusStop) -> some View {
         Button {
             stopSheet = StopSheetData(stop: stop, arrivals: [])
         } label: {
             HStack(spacing: 8) {
-                BusStopIcon(size: 12, color: Color.cfTextSecondary, strokeWidth: 2.2)
-                VStack(alignment: .leading, spacing: 1) {
-                    Text(stop.name)
-                        .font(.system(size: 12, weight: .bold))
-                        .foregroundStyle(Color.cfTextPrimary)
-                        .lineLimit(1)
-                    Text("Stop \(stop.id)")
-                        .font(.system(size: 9, weight: .medium))
-                        .monospacedDigit()
-                        .foregroundStyle(Color.cfTextTertiary)
-                }
+                BusStopIcon(size: 14, color: Color.cfTextSecondary, strokeWidth: 2.2)
+                Text(stop.name)
+                    .font(.system(size: 13, weight: .bold))
+                    .foregroundStyle(Color.cfTextPrimary)
+                    .lineLimit(1)
             }
             .padding(.horizontal, 12)
-            .padding(.vertical, 8)
+            .frame(height: pinnedChipHeight)
             .glassSurface(cornerRadius: 12, fill: Color.cfGlassFillSoft)
         }
         .buttonStyle(CardButtonStyle(pressedScale: 0.95))
+        .accessibilityLabel("Pinned stop \(stop.name)")
     }
 
     private func pinnedBusChip(_ serviceNo: String) -> some View {
         Button { handlePinnedBus(serviceNo) } label: {
-            HStack(spacing: 6) {
+            HStack(spacing: 8) {
                 ServiceChip(service: serviceNo, size: .sm)
                 Text("Bus")
                     .font(.system(size: 9, weight: .semibold))
                     .tracking(0.4)
                     .foregroundStyle(Color.cfTextTertiary)
             }
-            .padding(.horizontal, 10)
-            .padding(.vertical, 6)
+            .padding(.horizontal, 12)
+            .frame(height: pinnedChipHeight)
             .glassSurface(cornerRadius: 12, fill: Color.cfGlassFillSoft)
         }
         .buttonStyle(CardButtonStyle(pressedScale: 0.92))
@@ -392,6 +418,49 @@ struct HomeView: View {
     private func refreshWeatherAndJourney() async {
         await refreshHeroWeather()
         await refreshHeroJourney()
+        publishHeroSnapshot()
+        publishPinnedSnapshot()
+    }
+
+    /// Mirror the hero state into the App Group so the home-screen widget
+    /// can render the same card without re-running journey logic.
+    private func publishHeroSnapshot() {
+        let ctx = heroContext
+        let snap = NextOutTheDoorSnapshot(
+            timeContext: NextOutTheDoorSnapshot.TimeContext(rawValue: ctx.time.rawValue) ?? .midday,
+            labelTop: ctx.labelTop,
+            headline: ctx.headline,
+            bus: ctx.journey?.bus,
+            etaMinutes: ctx.journey?.etaMinutes,
+            slack: ctx.journey?.slack,
+            destination: ctx.journey?.destination,
+            destinationLabel: ctx.journey?.destinationLabel,
+            fromStop: ctx.journey?.fromStop,
+            totalTripMinutes: ctx.journey?.totalTripMinutes,
+            arriveByLabel: ctx.journey?.arriveByLabel,
+            updatedAt: Date()
+        )
+        SharedSnapshot.writeNextOutTheDoor(snap)
+        WidgetCenter.shared.reloadTimelines(ofKind: "NextOutTheDoorWidget")
+    }
+
+    /// Mirror the user's pinned (starred) stops and bus numbers into the
+    /// App Group so the Pinned widget can render them. Re-publishes on
+    /// every Home appearance so the widget catches changes made on detail
+    /// screens (where stars get toggled).
+    private func publishPinnedSnapshot() {
+        let stops = appState.favoriteBusStopCodes
+            .compactMap { code -> PinnedItemsSnapshot.Stop? in
+                guard let stop = BusStopNameCache.shared.stop(forCode: code) else { return nil }
+                return PinnedItemsSnapshot.Stop(code: stop.id, name: stop.name)
+            }
+            .sorted { $0.name < $1.name }
+        let buses = appState.favoriteLineCodes.sorted { lhs, rhs in
+            (Int(lhs) ?? .max, lhs) < (Int(rhs) ?? .max, rhs)
+        }
+        let snap = PinnedItemsSnapshot(stops: stops, busNumbers: buses, updatedAt: Date())
+        SharedSnapshot.writePinned(snap)
+        WidgetCenter.shared.reloadTimelines(ofKind: "PinnedItemsWidget")
     }
 
     private func refreshHeroWeather() async {

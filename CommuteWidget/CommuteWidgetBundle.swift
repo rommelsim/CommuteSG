@@ -14,6 +14,8 @@ struct CommuteWidgetBundle: WidgetBundle {
         // Our real widgets:
         QuickActionsWidget()
         MRTStatusWidget()
+        NextOutTheDoorWidget()
+        PinnedItemsWidget()
         BusTrackingLiveActivity()
     }
 }

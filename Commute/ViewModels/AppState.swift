@@ -192,10 +192,9 @@ final class AppState {
             favoriteBusStopCodes.insert(code)
             added = true
         }
-        // Same gentle Tink for pin and unpin — the toast + haptic carry the
-        // direction; the audio is just a quiet confirmation that the tap
-        // registered. System sounds are auto-silenced by the ringer switch.
-        SoundEffect.playSuccess()
+        // Stops get the fuller 3-note major-chord arpeggio (C-E-G) — distinct
+        // from the 2-note bus tone so you can tell by ear what you pinned.
+        SoundEffect.playStopPinToggle()
         Task { @MainActor in
             ToastCenter.shared.show(added
                 ? .success("Stop saved", symbol: "star.fill")
@@ -212,7 +211,8 @@ final class AppState {
             favoriteLineCodes.insert(code)
             added = true
         }
-        SoundEffect.playSuccess()
+        // Buses get the lighter 2-note rising-major-third arpeggio (C-E).
+        SoundEffect.playBusPinToggle()
         Task { @MainActor in
             ToastCenter.shared.show(added
                 ? .success("Bus \(code) saved", symbol: "star.fill")
