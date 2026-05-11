@@ -349,6 +349,10 @@ struct PlanView: View {
             LiveTrackingView(arrival: arrival, busStopCode: busStopCode)
         case .journey(let opt, let mode, let from, let to):
             JourneyDetailView(option: opt, mode: mode, fromText: from, toText: to)
+        case .allMRTStations:
+            AllMRTStationsScreen()
+        case .allBusStops:
+            EmptyView()
         }
     }
 }

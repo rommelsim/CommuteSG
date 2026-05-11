@@ -269,8 +269,14 @@ struct HomeView: View {
         case .mrt:
             mrtCards
                 .padding(.horizontal, Spacing.screen)
-                .padding(.bottom, Spacing.s20)
+                .padding(.bottom, Spacing.s8)
                 .plainListRow()
+            if viewModel.nearbyMRT != nil {
+                seeAllLink(for: .mrt)
+                    .padding(.horizontal, Spacing.screen)
+                    .padding(.bottom, Spacing.s20)
+                    .plainListRow()
+            }
         case .busStops:
             ForEach(viewModel.nearbyBusStops) { entry in
                 NearbyBusStopCard(
@@ -296,6 +302,10 @@ struct HomeView: View {
                 )
                 .padding(.horizontal, Spacing.screen)
                 .plainListRow()
+            } else {
+                seeAllLink(for: .busStops)
+                    .padding(.horizontal, Spacing.screen)
+                    .plainListRow()
             }
         }
     }
@@ -404,7 +414,38 @@ struct HomeView: View {
             LiveTrackingView(arrival: busArrival, busStopCode: busStopCode)
         case .journey(let opt, let mode, let from, let to):
             JourneyDetailView(option: opt, mode: mode, fromText: from, toText: to)
+        case .allMRTStations:
+            AllMRTStationsScreen()
+        case .allBusStops:
+            AllBusStopsScreen(entries: viewModel.nearbyBusStops)
         }
+    }
+
+    @ViewBuilder
+    private func seeAllLink(for block: NearbyBlock) -> some View {
+        let title: String = {
+            switch block {
+            case .mrt: "See all nearby stations"
+            case .busStops: "See all nearby stops"
+            }
+        }()
+        Button {
+            switch block {
+            case .mrt: navigation.go(.allMRTStations)
+            case .busStops: navigation.go(.allBusStops)
+            }
+        } label: {
+            HStack(spacing: 4) {
+                Text(title)
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 11, weight: .semibold))
+            }
+            .font(.appBodyMedium)
+            .foregroundStyle(Color.appInfo)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.vertical, Spacing.s8)
+        }
+        .buttonStyle(.plain)
     }
 }
 
@@ -425,6 +466,8 @@ enum HomeRoute: Hashable {
     case mrt(MRTStation)
     case tracking(BusArrival, busStopCode: String?)
     case journey(JourneyOption, mode: PlanViewModel.DepartureMode, fromText: String, toText: String)
+    case allMRTStations
+    case allBusStops
 }
 
 @Observable

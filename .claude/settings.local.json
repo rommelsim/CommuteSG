@@ -21,7 +21,12 @@
       "Bash(xargs -I {} ls \"{}\")",
       "Bash(DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer xcodebuild -project Commute.xcodeproj -scheme Commute -destination 'platform=iOS Simulator,name=iPhone 17' clean build)",
       "Bash(xargs -I {} find \"{}\" -type d -name \"*.lproj\")",
-      "Bash(plutil -p /Users/rommel/Library/Developer/Xcode/DerivedData/Commute-hbsjzcdzahjjwzecfpbsqykmutoj/Build/Products/Release-iphonesimulator/Commute.app/zh-Hans.lproj/Localizable.strings)"
+      "Bash(plutil -p /Users/rommel/Library/Developer/Xcode/DerivedData/Commute-hbsjzcdzahjjwzecfpbsqykmutoj/Build/Products/Release-iphonesimulator/Commute.app/zh-Hans.lproj/Localizable.strings)",
+      "Bash(xcodebuild -project Commute.xcodeproj -scheme Commute -destination 'platform=iOS Simulator,name=iPhone 15' -configuration Debug build)",
+      "Bash(ls /Applications/ | grep -i xcode)",
+      "Bash(DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer /Applications/Xcode.app/Contents/Developer/usr/bin/xcodebuild -project /Users/rommel/Documents/CommuteSG/Commute.xcodeproj -scheme Commute -destination 'platform=iOS Simulator,name=iPhone 15' -configuration Debug build)",
+      "Bash(DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer xcrun simctl list devices available)",
+      "Bash(DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer /Applications/Xcode.app/Contents/Developer/usr/bin/xcodebuild -project /Users/rommel/Documents/CommuteSG/Commute.xcodeproj -scheme Commute -destination 'platform=iOS Simulator,name=iPhone 17' -configuration Debug build)"
     ]
   }
 }
