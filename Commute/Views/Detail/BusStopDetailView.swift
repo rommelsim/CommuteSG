@@ -234,14 +234,17 @@ struct BusStopDetailView: View {
             .font(.system(size: 10, weight: .bold))
             .monospacedDigit()
             .tracking(-0.1)
-            .foregroundStyle(Color.cfTextPrimary)
+            // Static dark color (NOT cfTextPrimary) because the pill below
+            // is hardcoded white in both modes — using a flipping token
+            // would render white-on-white in dark mode.
+            .foregroundStyle(Color(hex: 0x1F2937))
             .padding(.horizontal, 6)
             .frame(height: 19)
-            // Bus marker pill on the map. Background stays white (matches
-            // the system map style; map is mostly bright/light terrain even
-            // in dark mode) so the dark text reads.
+            // Bus marker pill on the map. Background stays white (the
+            // system map terrain is bright in both modes) so the dark
+            // text always reads.
             .background(.white, in: Capsule())
-            .overlay(Capsule().strokeBorder(Color.cfHairlineStrong, lineWidth: 0.5))
+            .overlay(Capsule().strokeBorder(Color.black.opacity(0.10), lineWidth: 0.5))
             .shadow(color: .black.opacity(0.18), radius: 2, y: 1)
     }
 
