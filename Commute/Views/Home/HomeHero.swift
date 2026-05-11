@@ -138,21 +138,35 @@ struct HeroContext {
 struct HomeHero: View {
     let context: HeroContext
 
+    @State private var tilt = MotionTilt()
+
+    /// How far each orb can drift in points at full tilt. Larger orb gets a
+    /// stronger response — it sits "closer" to the surface so it parallaxes
+    /// more obviously than the smaller one.
+    private let bigOrbAmplitude: CGFloat = 22
+    private let smallOrbAmplitude: CGFloat = 16
+
     var body: some View {
         ZStack {
             // Background gradient
             RoundedRectangle(cornerRadius: 20, style: .continuous)
                 .fill(context.time.palette.gradient)
 
-            // Decorative orbs
+            // Decorative orbs — drift with device tilt (liquid-glass feel)
             Circle()
                 .fill(context.time.palette.orbTint)
                 .frame(width: 96, height: 96)
-                .offset(x: 130, y: -64)
+                .offset(
+                    x: 130 + CGFloat(tilt.x) * bigOrbAmplitude,
+                    y: -64 + CGFloat(tilt.y) * bigOrbAmplitude
+                )
             Circle()
                 .fill(context.time.palette.orbTint)
                 .frame(width: 80, height: 80)
-                .offset(x: -110, y: 80)
+                .offset(
+                    x: -110 + CGFloat(tilt.x) * smallOrbAmplitude,
+                    y:  80 + CGFloat(tilt.y) * smallOrbAmplitude
+                )
 
             content
                 .padding(16)
@@ -160,6 +174,8 @@ struct HomeHero: View {
         .frame(maxWidth: .infinity)
         .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
         .shadow(color: Color(hex: 0x0F1729).opacity(0.40), radius: 14, x: 0, y: 12)
+        .onAppear { tilt.start() }
+        .onDisappear { tilt.stop() }
     }
 
     private var content: some View {
