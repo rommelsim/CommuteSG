@@ -61,7 +61,7 @@ struct BusStopDetailView: View {
                 walkPill
                     .padding(.horizontal, 20)
                 miniMap
-                    .padding(.horizontal, 8)
+                    .padding(.horizontal, 20)            // align with sibling content (top bar, walk pill, bus list)
                 filterRow
                     .padding(.horizontal, 20)
                 busList
@@ -87,7 +87,7 @@ struct BusStopDetailView: View {
             Spacer()
             VStack(spacing: 2) {
                 HStack(spacing: 6) {
-                    BusStopIcon(size: 14, color: Color.black.opacity(0.65), strokeWidth: 2.2)
+                    BusStopIcon(size: 14, color: Color.cfTextSecondary, strokeWidth: 2.2)
                     Text(stop.name)
                         .font(.system(size: 19, weight: .bold))
                         .foregroundStyle(Color.cfTextPrimary)
@@ -113,7 +113,7 @@ struct BusStopDetailView: View {
                 .font(.system(size: 14, weight: .semibold))
                 .foregroundStyle(foreground)
                 .frame(width: 40, height: 40)
-                .background(Color.white.opacity(0.85), in: Circle())
+                .background(Color.cfGlassFillStrong, in: Circle())
                 .shadow(color: .black.opacity(0.04), radius: 3, y: 2)
         }
         .buttonStyle(.plain)
@@ -127,15 +127,15 @@ struct BusStopDetailView: View {
             HStack(spacing: 6) {
                 Image(systemName: "figure.walk")
                     .font(.system(size: 11, weight: .semibold))
-                    .foregroundStyle(Color.black.opacity(0.50))
+                    .foregroundStyle(Color.cfTextTertiary)
                 Text("\(walkMin) min walk · \(distanceText)")
                     .font(.system(size: 11, weight: .bold))
                     .monospacedDigit()
-                    .foregroundStyle(Color.black.opacity(0.65))
+                    .foregroundStyle(Color.cfTextSecondary)
             }
             .padding(.horizontal, 12)
             .padding(.vertical, 6)
-            .glassSurface(cornerRadius: 999, fill: Color.white.opacity(0.70))
+            .glassSurface(cornerRadius: 999, fill: Color.cfGlassFillSoft)
             Spacer()
         }
     }
@@ -154,16 +154,23 @@ struct BusStopDetailView: View {
         ZStack(alignment: .topTrailing) {
             if let coord = stop.coordinate {
                 Map(position: $mapPosition) {
-                    Annotation(stop.name, coordinate: coord, anchor: .bottom) {
+                    // Annotation titles are passed empty so MapKit doesn't
+                    // overlay readable-only-in-light-mode auto labels under
+                    // each marker. The marker visuals already convey what
+                    // they are (stop icon for the stop, numbered pill for
+                    // the bus). Accessibility goes through the bare marker.
+                    Annotation("", coordinate: coord, anchor: .bottom) {
                         ZStack {
                             Circle().fill(Color.cfNowFill).frame(width: 28, height: 28)
-                            BusStopIcon(size: 14, color: .white, strokeWidth: 2.3)
+                            BusStopIcon(size: 14, color: Color.cfNowText, strokeWidth: 2.3)
                         }
                         .shadow(color: .black.opacity(0.25), radius: 3, y: 1)
+                        .accessibilityLabel(stop.name)
                     }
                     ForEach(busesOnMap, id: \.id) { entry in
-                        Annotation("Bus \(entry.serviceNo)", coordinate: entry.coordinate, anchor: .center) {
+                        Annotation("", coordinate: entry.coordinate, anchor: .center) {
                             busMarker(serviceNo: entry.serviceNo)
+                                .accessibilityLabel("Bus \(entry.serviceNo)")
                         }
                     }
                 }
@@ -177,9 +184,13 @@ struct BusStopDetailView: View {
         }
         .frame(height: 150)
         .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+        // `.strokeBorder` keeps the line entirely INSIDE the rounded
+        // rectangle so it lines up with the clipped corners; plain `.stroke`
+        // centers on the path so half the line bleeds outside the clip and
+        // looks misaligned. Color uses the cf token so it flips for dark mode.
         .overlay(
             RoundedRectangle(cornerRadius: 18, style: .continuous)
-                .stroke(.white.opacity(0.7), lineWidth: 0.5)
+                .strokeBorder(Color.cfHairlineStrong, lineWidth: 0.5)
         )
     }
 
@@ -205,7 +216,7 @@ struct BusStopDetailView: View {
                 .font(.system(size: 14, weight: .semibold))
                 .foregroundStyle(Color.cfTextPrimary)
                 .frame(width: 32, height: 32)
-                .background(Color.white.opacity(0.9), in: Circle())
+                .background(Color.cfGlassFillStrong, in: Circle())
         }
         .buttonStyle(.plain)
         .padding(10)
@@ -223,11 +234,14 @@ struct BusStopDetailView: View {
             .font(.system(size: 10, weight: .bold))
             .monospacedDigit()
             .tracking(-0.1)
-            .foregroundStyle(Color(hex: 0x1F2937))
+            .foregroundStyle(Color.cfTextPrimary)
             .padding(.horizontal, 6)
             .frame(height: 19)
+            // Bus marker pill on the map. Background stays white (matches
+            // the system map style; map is mostly bright/light terrain even
+            // in dark mode) so the dark text reads.
             .background(.white, in: Capsule())
-            .overlay(Capsule().strokeBorder(Color.black.opacity(0.10), lineWidth: 0.5))
+            .overlay(Capsule().strokeBorder(Color.cfHairlineStrong, lineWidth: 0.5))
             .shadow(color: .black.opacity(0.18), radius: 2, y: 1)
     }
 
@@ -240,12 +254,12 @@ struct BusStopDetailView: View {
                     Button { withAnimation(.snappy) { filter = f } } label: {
                         Text(f.label)
                             .font(.system(size: 12, weight: .bold))
-                            .foregroundStyle(filter == f ? Color.cfTextPrimary : Color.black.opacity(0.50))
+                            .foregroundStyle(filter == f ? Color.cfTextPrimary : Color.cfTextTertiary)
                             .padding(.horizontal, 14)
                             .padding(.vertical, 6)
                             .background {
                                 if filter == f {
-                                    Capsule().fill(Color.white)
+                                    Capsule().fill(Color(.systemBackground))
                                         .shadow(color: .black.opacity(0.08), radius: 2, y: 1)
                                 }
                             }
@@ -254,7 +268,7 @@ struct BusStopDetailView: View {
                 }
             }
             .padding(2)
-            .background(Color.black.opacity(0.04), in: Capsule())
+            .background(Color.cfHairline, in: Capsule())
 
             Spacer()
 
@@ -266,7 +280,7 @@ struct BusStopDetailView: View {
             }
             .padding(.horizontal, 10)
             .padding(.vertical, 4)
-            .glassSurface(cornerRadius: 999, fill: Color.white.opacity(0.80))
+            .glassSurface(cornerRadius: 999, fill: Color.cfGlassFillStrong)
         }
     }
 
@@ -300,7 +314,7 @@ struct BusStopDetailView: View {
                     }
                     .buttonStyle(.plain)
                     if idx < filteredArrivals.count - 1 {
-                        Divider().background(Color.black.opacity(0.04))
+                        Divider().background(Color.cfHairline)
                     }
                 }
             }

@@ -52,7 +52,23 @@ struct HomeView: View {
                 await refreshWeatherAndJourney()
             }
             .onChange(of: viewModel.nearbyBusStops.count) { _, _ in
-                Task { await refreshHeroJourney() }
+                Task {
+                    await refreshHeroJourney()
+                    // Re-publish pinned snapshot here too — by the time
+                    // nearbyBusStops populates, BusStopNameCache is warm,
+                    // which means the lookup in publishPinnedSnapshot can
+                    // actually resolve favorited codes to BusStop objects.
+                    publishPinnedSnapshot()
+                }
+            }
+            // Re-publish whenever the favorites set changes (e.g. user
+            // taps a star on a detail screen) so the widget reflects the
+            // change without waiting for the next Home appearance.
+            .onChange(of: appState.favoriteBusStopCodes) { _, _ in
+                publishPinnedSnapshot()
+            }
+            .onChange(of: appState.favoriteLineCodes) { _, _ in
+                publishPinnedSnapshot()
             }
             .navigationDestination(for: HomeRoute.self) { route in
                 destination(for: route)
@@ -122,7 +138,7 @@ struct HomeView: View {
             } label: {
                 Text(avatarInitial)
                     .font(.system(size: 12, weight: .bold))
-                    .foregroundStyle(Color(hex: 0x1F2937))
+                    .foregroundStyle(Color.cfTextPrimary)
                     .frame(width: 32, height: 32)
                     .background(Color.cfHairlineStrong, in: Circle())
             }

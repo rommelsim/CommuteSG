@@ -173,6 +173,15 @@ struct HomeHero: View {
         }
         .frame(maxWidth: .infinity)
         .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
+        // Subtle white hairline border so the card always has a defined
+        // edge — the drop shadow below works in light mode but becomes
+        // invisible against the dark-mode page background, leaving the
+        // card visually unbounded. The border at 12% white reads gently
+        // in light mode and gives a "raised" look in dark mode.
+        .overlay(
+            RoundedRectangle(cornerRadius: 20, style: .continuous)
+                .strokeBorder(Color.white.opacity(0.12), lineWidth: 0.5)
+        )
         .shadow(color: Color(hex: 0x0F1729).opacity(0.40), radius: 14, x: 0, y: 12)
         .onAppear { tilt.start() }
         .onDisappear { tilt.stop() }

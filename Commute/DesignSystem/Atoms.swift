@@ -42,20 +42,23 @@ struct ServiceChip: View {
 }
 
 // MARK: - NOW tag
-// The only fully-dark element in the UI. Pulsing white dot + "NOW" label.
+// The "loudest" element in the UI by contrast. The pill fill (`cfNowFill`)
+// flips dark↔light with the system appearance; the text/dot use `cfNowText`
+// which is the inverse pair — so the label always reads against the fill in
+// either mode (white-on-dark in light, dark-on-light in dark).
 struct NowTag: View {
     @State private var pulseOn = false
 
     var body: some View {
         HStack(spacing: 4) {
             Circle()
-                .fill(.white)
+                .fill(Color.cfNowText)
                 .frame(width: 4, height: 4)
                 .opacity(pulseOn ? 0.5 : 1.0)
             Text("NOW")
                 .font(.system(size: 11, weight: .bold))
                 .tracking(0.5)
-                .foregroundStyle(.white)
+                .foregroundStyle(Color.cfNowText)
         }
         .padding(.horizontal, 8)
         .padding(.vertical, 2)

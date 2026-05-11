@@ -1,23 +1,20 @@
 import Foundation
 import CoreLocation
-import WeatherKit
 
-/// Maps Apple WeatherKit data → the hero card's small weather chip.
+/// Fetches the hero card's small weather chip from **wttr.in** — a free,
+/// no-auth weather API. We previously used WeatherKit but it requires the
+/// "WeatherKit" capability on the App ID, which has to be enabled in the
+/// developer portal AND propagated through Xcode automatic signing; many
+/// developer accounts can't enable it reliably. wttr.in needs none of that.
 ///
-/// Requires the **WeatherKit** capability enabled on the app target AND on
-/// the App ID in your Apple Developer account. Without it, `WeatherService`
-/// fails at runtime; we catch the error silently and the hero falls back to
-/// the placeholder weather. To enable:
-///   1. Xcode → target → Signing & Capabilities → "+" → WeatherKit
-///   2. developer.apple.com → Identifiers → app ID → enable WeatherKit
-///   3. Wait ~30 min for the entitlement to propagate
+/// Returns nil silently on any failure (network, malformed JSON, etc) —
+/// the hero falls back to its `—` placeholder weather chip.
 @MainActor
 final class WeatherProvider {
     static let shared = WeatherProvider()
 
-    private let service = WeatherService()
     private var cache: (location: CLLocation, weather: HeroContext.Weather, at: Date)?
-    private let cacheTTL: TimeInterval = 15 * 60  // 15 min — weather changes slowly
+    private let cacheTTL: TimeInterval = 15 * 60   // 15 min
 
     func current(at location: CLLocation) async -> HeroContext.Weather? {
         if let cache,
@@ -25,60 +22,65 @@ final class WeatherProvider {
            cache.location.distance(from: location) < 5_000 {
             return cache.weather
         }
+
+        let lat = location.coordinate.latitude
+        let lon = location.coordinate.longitude
+        guard let url = URL(string: "https://wttr.in/\(lat),\(lon)?format=j1") else { return nil }
+
         do {
-            let result = try await service.weather(for: location)
-            let temp = Int(result.currentWeather.temperature.converted(to: .celsius).value.rounded())
-            let cond = result.currentWeather.condition
+            var req = URLRequest(url: url)
+            req.timeoutInterval = 6
+            // wttr.in sometimes refuses default URLSession user agents — set
+            // a generic curl-style UA which it expects for plain-text mode.
+            req.setValue("curl/8.0", forHTTPHeaderField: "User-Agent")
+            let (data, _) = try await URLSession.shared.data(for: req)
+            let result = try JSONDecoder().decode(WTTRResponse.self, from: data)
+            guard let current = result.current_condition.first,
+                  let temp = Int(current.temp_C) else { return nil }
+            let desc = current.weatherDesc.first?.value.trimmingCharacters(in: .whitespaces) ?? "—"
             let weather = HeroContext.Weather(
-                symbol: Self.sfSymbol(for: cond),
-                text: "\(temp)°C · \(Self.label(for: cond))"
+                symbol: Self.sfSymbol(forWeatherCode: current.weatherCode),
+                text: "\(temp)°C · \(desc)"
             )
             cache = (location, weather, Date())
             return weather
         } catch {
-            // Capability not enabled, throttled, or offline — caller falls
-            // back to placeholder. Don't log loudly; this is expected on
-            // first run before the capability is enabled.
             return nil
         }
     }
 
-    private static func sfSymbol(for condition: WeatherCondition) -> String {
-        switch condition {
-        case .clear, .mostlyClear, .hot:                return "sun.max.fill"
-        case .partlyCloudy:                             return "cloud.sun.fill"
-        case .cloudy, .mostlyCloudy:                    return "cloud.fill"
-        case .drizzle, .rain, .freezingRain, .sunShowers:
-                                                        return "cloud.rain.fill"
-        case .heavyRain:                                return "cloud.heavyrain.fill"
-        case .thunderstorms, .strongStorms, .scatteredThunderstorms,
-             .isolatedThunderstorms:                    return "cloud.bolt.rain.fill"
-        case .snow, .heavySnow, .flurries, .blowingSnow,
-             .blizzard, .freezingDrizzle, .sleet, .wintryMix,
-             .sunFlurries, .frigid, .hail:              return "cloud.snow.fill"
-        case .haze, .smoky, .foggy, .breezy, .windy, .blowingDust,
-             .tropicalStorm, .hurricane:                return "cloud.fog.fill"
-        @unknown default:                               return "sun.max.fill"
+    /// Map wttr.in's weather code (WWO API) → SF Symbol. Codes are documented
+    /// at https://www.worldweatheronline.com/developer/api/docs/weather-icons.aspx
+    private static func sfSymbol(forWeatherCode code: String) -> String {
+        switch code {
+        case "113":                                  return "sun.max.fill"            // Clear / Sunny
+        case "116":                                  return "cloud.sun.fill"          // Partly cloudy
+        case "119", "122":                           return "cloud.fill"              // Cloudy / Overcast
+        case "143", "248", "260":                    return "cloud.fog.fill"          // Mist / Fog
+        case "176", "263", "266", "281", "284",
+             "293", "296", "299", "302", "305",
+             "308", "311", "314", "353", "356", "359":
+                                                     return "cloud.rain.fill"         // Rain
+        case "200", "386", "389", "392", "395":      return "cloud.bolt.rain.fill"    // Thunder
+        case "227", "230", "320", "323", "326",
+             "329", "332", "335", "338", "350",
+             "362", "365", "368", "371", "374", "377":
+                                                     return "cloud.snow.fill"         // Snow / sleet
+        default:                                     return "sun.max.fill"
         }
     }
+}
 
-    private static func label(for condition: WeatherCondition) -> String {
-        switch condition {
-        case .clear, .mostlyClear:                      return "Clear"
-        case .partlyCloudy:                             return "Partly cloudy"
-        case .cloudy, .mostlyCloudy:                    return "Cloudy"
-        case .drizzle:                                  return "Drizzle"
-        case .rain, .sunShowers:                        return "Rain"
-        case .heavyRain:                                return "Heavy rain"
-        case .thunderstorms, .strongStorms,
-             .scatteredThunderstorms,
-             .isolatedThunderstorms:                    return "Thunderstorms"
-        case .haze:                                     return "Hazy"
-        case .smoky:                                    return "Smoky"
-        case .foggy:                                    return "Foggy"
-        case .windy, .breezy:                           return "Windy"
-        case .hot:                                      return "Hot"
-        default:                                        return "—"
-        }
+// MARK: - wttr.in JSON shape (only the fields we use)
+
+private struct WTTRResponse: Decodable {
+    let current_condition: [Current]
+    struct Current: Decodable {
+        let temp_C: String
+        let weatherCode: String
+        let weatherDesc: [Desc]
+    }
+    struct Desc: Decodable {
+        let value: String
     }
 }

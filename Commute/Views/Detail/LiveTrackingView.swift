@@ -101,7 +101,7 @@ struct LiveTrackingView: View {
                 .font(.system(size: 14, weight: .semibold))
                 .foregroundStyle(foreground)
                 .frame(width: 40, height: 40)
-                .background(Color.white.opacity(0.85), in: Circle())
+                .background(Color.cfGlassFillStrong, in: Circle())
                 .shadow(color: .black.opacity(0.04), radius: 3, y: 2)
         }
         .buttonStyle(.plain)
@@ -247,7 +247,7 @@ struct LiveTrackingView: View {
             .padding(.horizontal, 16)
             .padding(.vertical, 12)
 
-            Divider().background(Color.black.opacity(0.05))
+            Divider().background(Color.cfHairline)
 
             timelineBody
                 .padding(.vertical, 8)
@@ -348,7 +348,7 @@ struct LiveTrackingView: View {
                     if marker == .userBoarding {
                         Text("Your boarding stop")
                             .font(.system(size: 10, weight: .semibold))
-                            .foregroundStyle(Color.black.opacity(0.60))
+                            .foregroundStyle(Color.cfTextSecondary)
                     } else if marker == .terminus {
                         Text("Terminus")
                             .font(.system(size: 10, weight: .medium))
@@ -381,7 +381,10 @@ struct LiveTrackingView: View {
         switch m {
         case .userBoarding:
             ZStack {
-                Circle().fill(Color.white).frame(width: 20, height: 20)
+                // Inner circle uses page-background so it flips: near-white
+                // in light, near-black in dark — keeps contrast against the
+                // ring (cfNowFill, which also flips) regardless of mode.
+                Circle().fill(Color.cfPageBackground).frame(width: 20, height: 20)
                     .overlay(Circle().stroke(Color.cfNowFill, lineWidth: 2))
                 BusStopIcon(size: 10, color: Color.cfNowFill, strokeWidth: 2.5)
             }
@@ -390,18 +393,21 @@ struct LiveTrackingView: View {
                 .fill(Color.cfNowFill)
                 .frame(width: 12, height: 12)
         case .future:
-            Circle().fill(Color.black.opacity(0.15)).frame(width: 8, height: 8)
+            Circle().fill(Color.cfTextDisabled).frame(width: 8, height: 8)
                 .padding(.top, 6)
         case .past:
-            Circle().fill(Color.black.opacity(0.35)).frame(width: 8, height: 8)
+            Circle().fill(Color.cfTextTertiary).frame(width: 8, height: 8)
                 .padding(.top, 6)
         case .current:
             ZStack {
-                Circle().fill(Color.black.opacity(0.20)).frame(width: 24, height: 24)
+                Circle().fill(Color.cfTextMuted).frame(width: 24, height: 24)
                 Circle().fill(Color.cfNowFill).frame(width: 18, height: 18)
+                // Bus icon uses cfNowText (the inverse of cfNowFill) so it
+                // always reads against the marker: white-on-dark in light,
+                // dark-on-light in dark.
                 Image(systemName: "bus.fill")
                     .font(.system(size: 10, weight: .bold))
-                    .foregroundStyle(.white)
+                    .foregroundStyle(Color.cfNowText)
             }
         }
     }
@@ -414,12 +420,12 @@ struct LiveTrackingView: View {
     }
 
     private func railColor(above m: Marker) -> Color {
-        switch m { case .past, .current: Color.black.opacity(0.45); default: Color.black.opacity(0.12) }
+        switch m { case .past, .current: Color.cfTextTertiary; default: Color.cfTextDisabled }
     }
     private func railColor(below m: Marker) -> Color {
         // Connector entering this marker mirrors what's above the prior one;
         // for v1 (no past stops surfaced) every connector is "future" tone.
-        Color.black.opacity(0.12)
+        Color.cfTextDisabled
     }
 
     // MARK: - On this bus
@@ -427,7 +433,7 @@ struct LiveTrackingView: View {
     private var onThisBusCard: some View {
         VStack(spacing: 0) {
             sectionHeader("ON THIS BUS")
-            Divider().background(Color.black.opacity(0.05))
+            Divider().background(Color.cfHairline)
             row(label: "Crowd level") {
                 HStack(spacing: 6) {
                     CrowdPeople(level: crowdLevel, size: 12)
@@ -436,19 +442,19 @@ struct LiveTrackingView: View {
                         .foregroundStyle(Color.cfTextPrimary)
                 }
             }
-            Divider().background(Color.black.opacity(0.04))
+            Divider().background(Color.cfHairline)
             row(label: "Reliability") {
                 Text(currentArrival.nextArrivalIsScheduled ? "Volatile · ± 3 min" : "On time")
                     .font(.system(size: 12, weight: .bold))
                     .foregroundStyle(Color.cfTextPrimary)
             }
-            Divider().background(Color.black.opacity(0.04))
+            Divider().background(Color.cfHairline)
             row(label: "Bus type") {
                 Text(currentArrival.nextArrivalType.label)
                     .font(.system(size: 12, weight: .bold))
                     .foregroundStyle(Color.cfTextPrimary)
             }
-            Divider().background(Color.black.opacity(0.04))
+            Divider().background(Color.cfHairline)
             row(label: "Operator") {
                 Text(operatorLabel)
                     .font(.system(size: 12, weight: .bold))
@@ -526,7 +532,7 @@ struct LiveTrackingView: View {
                     .font(.system(size: 14, weight: .semibold))
                     .foregroundStyle(Color.cfTextPrimary)
                     .frame(width: 28, height: 28)
-                    .background(Color.black.opacity(0.06), in: Circle())
+                    .background(Color.cfHairlineStrong, in: Circle())
                 VStack(alignment: .leading, spacing: 2) {
                     Text("Track on Lock Screen")
                         .font(.system(size: 13, weight: .bold))

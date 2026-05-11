@@ -254,18 +254,41 @@ struct NextOutTheDoorWidgetView: View {
     }
 
     private var staleState: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Image(systemName: "tram.fill")
+        VStack(alignment: .leading, spacing: 6) {
+            Image(systemName: diagnostic.symbol)
                 .font(.system(size: 18, weight: .bold))
                 .foregroundStyle(.white)
-            Text("Open Commute")
+            Text(diagnostic.title)
                 .font(.system(size: 14, weight: .bold))
                 .foregroundStyle(.white)
-            Text("to refresh your hero")
+            Text(diagnostic.detail)
                 .font(.system(size: 11, weight: .medium))
                 .foregroundStyle(Color.white.opacity(0.65))
+                .lineLimit(3)
             Spacer(minLength: 0)
         }
+    }
+
+    /// Diagnose WHY the widget has nothing to render so the user knows what
+    /// to fix. Three failure modes:
+    ///   1. App Group suite not available → entitlement missing on a target
+    ///   2. Snapshot key missing → main app hasn't written one yet
+    ///   3. Snapshot present but >30 min old → main app hasn't refreshed
+    private var diagnostic: (symbol: String, title: String, detail: String) {
+        let suite = UserDefaults(suiteName: SharedSnapshot.appGroupID)
+        if suite == nil {
+            return ("exclamationmark.triangle.fill",
+                    "App Group missing",
+                    "Tick \(SharedSnapshot.appGroupID) on both targets in Signing & Capabilities.")
+        }
+        if entry.snapshot == nil {
+            return ("tram.fill",
+                    "Open Commute",
+                    "Launch the app once so it can publish the snapshot.")
+        }
+        return ("clock.arrow.circlepath",
+                "Snapshot stale",
+                "Open Commute to refresh.")
     }
 }
 

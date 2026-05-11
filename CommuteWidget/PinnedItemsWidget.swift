@@ -211,16 +211,37 @@ struct PinnedItemsWidgetView: View {
 
     private var emptyState: some View {
         VStack(alignment: .leading, spacing: 6) {
-            Image(systemName: "star")
+            Image(systemName: diagnostic.symbol)
                 .font(.system(size: 18, weight: .bold))
                 .foregroundStyle(.secondary)
-            Text("Nothing pinned")
+            Text(diagnostic.title)
                 .font(.system(size: 13, weight: .bold))
-            Text("Star a stop or bus in Commute to pin it here.")
+            Text(diagnostic.detail)
                 .font(.system(size: 10, weight: .medium))
                 .foregroundStyle(.secondary)
+                .lineLimit(3)
             Spacer(minLength: 0)
         }
+    }
+
+    /// Surface WHY there's no content so the user knows what to fix:
+    ///   1. App Group suite missing → entitlement isn't applied to a target
+    ///   2. Snapshot never written → main app hasn't reached the publish path
+    ///   3. Snapshot present but both lists empty → genuinely nothing pinned
+    private var diagnostic: (symbol: String, title: String, detail: String) {
+        if UserDefaults(suiteName: SharedSnapshot.appGroupID) == nil {
+            return ("exclamationmark.triangle.fill",
+                    "App Group missing",
+                    "Tick \(SharedSnapshot.appGroupID) on both targets in Signing & Capabilities.")
+        }
+        if entry.snapshot == nil {
+            return ("tram.fill",
+                    "Open Commute",
+                    "Launch the app once so it can publish your pins.")
+        }
+        return ("star",
+                "Nothing pinned",
+                "Star a stop or bus in Commute to pin it here.")
     }
 }
 

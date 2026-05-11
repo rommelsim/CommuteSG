@@ -67,10 +67,12 @@ public struct NextOutTheDoorSnapshot: Codable, Hashable {
 }
 
 public enum SharedSnapshot {
-    /// App Group identifier. Override via Info.plist if needed.
+    /// App Group identifier — must match what's ticked on BOTH the Commute
+    /// and CommuteWidgetExtension targets in Signing & Capabilities → App
+    /// Groups. Override via Info.plist (`APP_GROUP_ID`) if needed.
     public static let appGroupID: String = {
         Bundle.main.object(forInfoDictionaryKey: "APP_GROUP_ID") as? String
-            ?? "group.com.rommelsim.commute"
+            ?? "group.com.transitsg.shared"
     }()
 
     private static let mrtKey = "snapshot.mrtStatus.v1"

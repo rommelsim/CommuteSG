@@ -181,7 +181,11 @@ enum HeroPalette {
         case .evening:
             return [Color(hex: 0x422560), Color(hex: 0x7A3B5C), Color(hex: 0xC66848)]
         case .night:
-            return [Color(hex: 0x0A0E1A), Color(hex: 0x1A1F2E)]
+            // Lifted from #0A0E1A→#1A1F2E so the card visibly stands above
+            // the dark-mode page background (cfPageBackground = #0A0A0C);
+            // the previous stops were almost identical to the page and
+            // made the card disappear in dark mode.
+            return [Color(hex: 0x1E2740), Color(hex: 0x2C3654)]
         case .weekend:
             return [Color(hex: 0x2D4A3E), Color(hex: 0x4A6F5A)]
         }

@@ -22,10 +22,10 @@ struct SearchView: View {
                 searchField
                     .padding(.horizontal, 20)
                     .padding(.bottom, 14)
-                Divider().background(Color.black.opacity(0.06))
+                Divider().background(Color.cfHairlineStrong)
                 resultsBody
             }
-            .background(Color.white.ignoresSafeArea())
+            .background(Color(.systemBackground).ignoresSafeArea())
             .navigationBarHidden(true)
             .fullScreenCover(item: $stopSheet) { data in
                 NavigationStack {
@@ -84,8 +84,8 @@ struct SearchView: View {
                         .foregroundStyle(Color.appInfo)
                         .padding(.horizontal, 18)
                         .padding(.vertical, 10)
-                        .background(Color.white, in: Capsule())
-                        .overlay(Capsule().strokeBorder(Color.black.opacity(0.04), lineWidth: 0.5))
+                        .background(Color(.systemBackground), in: Capsule())
+                        .overlay(Capsule().strokeBorder(Color.cfHairline, lineWidth: 0.5))
                         .shadow(color: .black.opacity(0.06), radius: 4, y: 2)
                 }
                 .buttonStyle(.plain)
@@ -99,7 +99,7 @@ struct SearchView: View {
         HStack(spacing: 10) {
             Image(systemName: "magnifyingglass")
                 .font(.system(size: 14, weight: .medium))
-                .foregroundStyle(Color.black.opacity(0.50))
+                .foregroundStyle(Color.cfTextTertiary)
             TextField("Stop code, station name, or road", text: $viewModel.query)
                 .focused($isFocused)
                 .submitLabel(.search)
@@ -111,14 +111,14 @@ struct SearchView: View {
                 Button { viewModel.query = "" } label: {
                     Image(systemName: "xmark.circle.fill")
                         .font(.system(size: 16))
-                        .foregroundStyle(Color.black.opacity(0.30))
+                        .foregroundStyle(Color.cfTextMuted)
                 }
                 .buttonStyle(.plain)
             }
         }
         .padding(.vertical, 12)
         .padding(.horizontal, 14)
-        .background(Color(hex: 0xEFEAE0).opacity(0.55), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+        .background(Color(.secondarySystemBackground), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
     }
 
     // MARK: - Results body
@@ -179,7 +179,7 @@ struct SearchView: View {
         Text(title.uppercased())
             .font(.appCaptionStrong)
             .tracking(0.6)
-            .foregroundStyle(Color.black.opacity(0.50))
+            .foregroundStyle(Color.cfTextTertiary)
             .frame(maxWidth: .infinity, alignment: .leading)
             .padding(.horizontal, 20)
             .padding(.top, 24)
@@ -192,7 +192,7 @@ struct SearchView: View {
 
     private var rowDivider: some View {
         Divider()
-            .background(Color.black.opacity(0.06))
+            .background(Color.cfHairlineStrong)
             .padding(.horizontal, 20)
     }
 
@@ -209,7 +209,7 @@ struct SearchView: View {
                         .lineLimit(1)
                     Text(station.line.fullName)
                         .font(.appCaption)
-                        .foregroundStyle(Color.black.opacity(0.50))
+                        .foregroundStyle(Color.cfTextTertiary)
                         .lineLimit(1)
                 }
                 Spacer(minLength: 8)
@@ -217,11 +217,11 @@ struct SearchView: View {
                     Text(distanceLabel(m))
                         .font(.appLabelMedium)
                         .monospacedDigit()
-                        .foregroundStyle(Color.black.opacity(0.45))
+                        .foregroundStyle(Color.cfTextTertiary)
                 }
                 Image(systemName: "chevron.right")
                     .font(.system(size: 12, weight: .semibold))
-                    .foregroundStyle(Color.black.opacity(0.30))
+                    .foregroundStyle(Color.cfTextMuted)
             }
             .padding(.horizontal, 20)
             .padding(.vertical, 12)
@@ -238,9 +238,9 @@ struct SearchView: View {
             HStack(spacing: 12) {
                 Image(systemName: "bus.fill")
                     .font(.system(size: 16, weight: .medium))
-                    .foregroundStyle(Color.black.opacity(0.55))
+                    .foregroundStyle(Color.cfTextSecondary)
                     .frame(width: 36, height: 36)
-                    .background(Color.black.opacity(0.05), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+                    .background(Color.cfHairline, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
                 VStack(alignment: .leading, spacing: 2) {
                     Text(stop.name)
                         .font(.appSubTitle)
@@ -248,7 +248,7 @@ struct SearchView: View {
                         .lineLimit(1)
                     Text("\(stop.id) · \(stop.road)")
                         .font(.appCaption)
-                        .foregroundStyle(Color.black.opacity(0.50))
+                        .foregroundStyle(Color.cfTextTertiary)
                         .lineLimit(1)
                 }
                 Spacer(minLength: 8)
@@ -256,11 +256,11 @@ struct SearchView: View {
                     Text(distanceLabel(m))
                         .font(.appLabelMedium)
                         .monospacedDigit()
-                        .foregroundStyle(Color.black.opacity(0.45))
+                        .foregroundStyle(Color.cfTextTertiary)
                 }
                 Image(systemName: "chevron.right")
                     .font(.system(size: 12, weight: .semibold))
-                    .foregroundStyle(Color.black.opacity(0.30))
+                    .foregroundStyle(Color.cfTextMuted)
             }
             .padding(.horizontal, 20)
             .padding(.vertical, 10)

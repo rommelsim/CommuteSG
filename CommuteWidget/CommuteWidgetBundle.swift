@@ -12,8 +12,8 @@ import SwiftUI
 struct CommuteWidgetBundle: WidgetBundle {
     var body: some Widget {
         // Our real widgets:
-        QuickActionsWidget()
-        MRTStatusWidget()
+        //QuickActionsWidget()
+        //MRTStatusWidget()
         NextOutTheDoorWidget()
         PinnedItemsWidget()
         BusTrackingLiveActivity()
