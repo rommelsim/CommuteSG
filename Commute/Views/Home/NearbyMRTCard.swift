@@ -22,7 +22,7 @@ struct NearbyMRTCard: View {
                 HStack(alignment: .center, spacing: 8) {
                     Image(systemName: "tram.fill")
                         .font(.system(size: 12, weight: .semibold))
-                        .foregroundStyle(Color.black.opacity(0.65))
+                        .foregroundStyle(Color.cfTextSecondary)
                     Text(nearby.station.name)
                         .font(.system(size: 14, weight: .bold))
                         .foregroundStyle(Color.cfTextPrimary)
@@ -35,7 +35,7 @@ struct NearbyMRTCard: View {
                 }
 
                 Divider()
-                    .background(Color.black.opacity(0.05))
+                    .background(Color.cfChipFill)
                     .padding(.vertical, 10)
 
                 HStack {
@@ -68,7 +68,7 @@ struct NearbyMRTCard: View {
                 .foregroundStyle(statusColor)
             Text(statusText)
                 .font(.system(size: 11, weight: .medium))
-                .foregroundStyle(Color.black.opacity(0.65))
+                .foregroundStyle(Color.cfTextSecondary)
                 .lineLimit(1)
         }
     }
@@ -81,11 +81,11 @@ struct NearbyMRTCard: View {
             CrowdPeople(level: .med, size: 10)
             Text("Moderate")
                 .font(.system(size: 10, weight: .semibold))
-                .foregroundStyle(Color.black.opacity(0.65))
+                .foregroundStyle(Color.cfTextSecondary)
         }
         .padding(.horizontal, 8)
         .padding(.vertical, 3)
-        .background(Color.black.opacity(0.04), in: RoundedRectangle(cornerRadius: 6, style: .continuous))
+        .background(Color.cfHairline, in: RoundedRectangle(cornerRadius: 6, style: .continuous))
     }
 
     private var statusSymbol: String {

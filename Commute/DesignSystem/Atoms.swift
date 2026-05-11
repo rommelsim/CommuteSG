@@ -95,7 +95,7 @@ struct ETAView: View {
                     .foregroundStyle(Color.cfTextPrimary)
                 Text("min")
                     .font(.system(size: label, weight: .semibold))
-                    .foregroundStyle(Color.black.opacity(0.45))
+                    .foregroundStyle(Color.cfTextTertiary)
             }
         }
     }

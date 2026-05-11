@@ -192,8 +192,10 @@ final class AppState {
             favoriteBusStopCodes.insert(code)
             added = true
         }
-        // Only sound on save (the rewarding action), not on un-save.
-        if added { SoundEffect.playSuccess() }
+        // Same gentle Tink for pin and unpin — the toast + haptic carry the
+        // direction; the audio is just a quiet confirmation that the tap
+        // registered. System sounds are auto-silenced by the ringer switch.
+        SoundEffect.playSuccess()
         Task { @MainActor in
             ToastCenter.shared.show(added
                 ? .success("Stop saved", symbol: "star.fill")
@@ -210,7 +212,7 @@ final class AppState {
             favoriteLineCodes.insert(code)
             added = true
         }
-        if added { SoundEffect.playSuccess() }
+        SoundEffect.playSuccess()
         Task { @MainActor in
             ToastCenter.shared.show(added
                 ? .success("Bus \(code) saved", symbol: "star.fill")

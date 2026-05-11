@@ -8,12 +8,13 @@ import CoreLocation
 @MainActor
 final class BusStopNameCache {
     static let shared = BusStopNameCache()
-    private var dict: [String: String] = [:]
+    private var cache: [String: BusStop] = [:]
 
-    func name(forCode code: String) -> String? { dict[code] }
+    func stop(forCode code: String) -> BusStop? { cache[code] }
+    func name(forCode code: String) -> String? { cache[code]?.name }
 
     func update(from stops: [BusStop]) {
-        dict = Dictionary(uniqueKeysWithValues: stops.map { ($0.id, $0.name) })
+        cache = Dictionary(uniqueKeysWithValues: stops.map { ($0.id, $0) })
     }
 }
 

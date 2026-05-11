@@ -31,6 +31,7 @@ struct HomeView: View {
                     searchBar
                     HomeHero(context: heroContext)
                     savedDestinations
+                    pinnedStopsSection
                     nearbyTransitHeader
                     nearbyTransitGroup
                     mrtSection
@@ -108,7 +109,7 @@ struct HomeView: View {
             VStack(alignment: .leading, spacing: 2) {
                 Text(heroContext.greeting)
                     .font(.system(size: 11, weight: .medium))
-                    .foregroundStyle(Color.black.opacity(0.50))
+                    .foregroundStyle(Color.cfTextTertiary)
                 Text("Where to?")
                     .font(.system(size: 22, weight: .bold))
                     .tracking(-0.3)
@@ -122,7 +123,7 @@ struct HomeView: View {
                     .font(.system(size: 12, weight: .bold))
                     .foregroundStyle(Color(hex: 0x1F2937))
                     .frame(width: 32, height: 32)
-                    .background(Color.black.opacity(0.06), in: Circle())
+                    .background(Color.cfHairlineStrong, in: Circle())
             }
             .buttonStyle(.plain)
             .accessibilityLabel("Profile")
@@ -134,15 +135,15 @@ struct HomeView: View {
             HStack(spacing: 8) {
                 Image(systemName: "magnifyingglass")
                     .font(.system(size: 13, weight: .bold))
-                    .foregroundStyle(Color.black.opacity(0.40))
+                    .foregroundStyle(Color.cfTextTertiary)
                 Text("Search station, bus, address")
                     .font(.system(size: 13, weight: .medium))
-                    .foregroundStyle(Color.black.opacity(0.40))
+                    .foregroundStyle(Color.cfTextTertiary)
                 Spacer()
             }
             .padding(.horizontal, 14)
             .padding(.vertical, 10)
-            .glassSurface(cornerRadius: 16, fill: Color.white.opacity(0.80))
+            .glassSurface(cornerRadius: 16, fill: Color.cfGlassFillStrong)
         }
         .buttonStyle(.plain)
     }
@@ -165,23 +166,23 @@ struct HomeView: View {
             HStack(spacing: 8) {
                 Image(systemName: symbol)
                     .font(.system(size: 13, weight: .semibold))
-                    .foregroundStyle(Color.black.opacity(0.70))
+                    .foregroundStyle(Color.cfTextSecondary)
                     .frame(width: 28, height: 28)
-                    .background(Color.black.opacity(0.05), in: Circle())
+                    .background(Color.cfChipFill, in: Circle())
                 VStack(alignment: .leading, spacing: 2) {
                     Text(title)
                         .font(.system(size: 12, weight: .bold))
                         .foregroundStyle(Color.cfTextPrimary)
                     Text(address.isEmpty ? "Tap to set address" : address)
                         .font(.system(size: 9, weight: .medium))
-                        .foregroundStyle(Color.black.opacity(0.55))
+                        .foregroundStyle(Color.cfTextSecondary)
                         .lineLimit(1)
                 }
                 Spacer(minLength: 0)
             }
             .padding(10)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .glassSurface(cornerRadius: 12, fill: Color.white.opacity(0.70))
+            .glassSurface(cornerRadius: 12, fill: Color.cfGlassFillSoft)
         }
         .buttonStyle(.plain)
     }
@@ -209,7 +210,7 @@ struct HomeView: View {
             }
             .padding(.horizontal, 8)
             .padding(.vertical, 2)
-            .glassSurface(cornerRadius: 999, fill: Color.white.opacity(0.70))
+            .glassSurface(cornerRadius: 999, fill: Color.cfGlassFillSoft)
         }
     }
 
@@ -240,7 +241,7 @@ struct HomeView: View {
                 VStack(spacing: 0) {
                     ForEach(Array(viewModel.nearbyBusStops.enumerated()), id: \.element.id) { idx, entry in
                         if idx > 0 {
-                            Divider().background(Color.black.opacity(0.04))
+                            Divider().background(Color.cfHairline)
                                 .padding(.horizontal, 16)
                         }
                         NearbyBusStopCard(
@@ -264,6 +265,111 @@ struct HomeView: View {
     private var mrtSection: some View {
         if let mrt = viewModel.nearbyMRT {
             NearbyMRTCard(nearby: mrt) { mrtSheet = mrt.station }
+        }
+    }
+
+    // MARK: - Pinned section (favorited buses + stops)
+
+    /// Bus stops the user has starred. Resolved synchronously from the
+    /// MainActor `BusStopNameCache` (populated by `BusStopsRepository`).
+    /// Unknown codes (cache not warm yet) are dropped silently.
+    private var pinnedStops: [BusStop] {
+        appState.favoriteBusStopCodes
+            .compactMap { BusStopNameCache.shared.stop(forCode: $0) }
+            .sorted { $0.name < $1.name }
+    }
+
+    /// Bus service numbers the user has starred (e.g. "156", "282").
+    private var pinnedBusNumbers: [String] {
+        appState.favoriteLineCodes.sorted { lhs, rhs in
+            // Numeric-aware sort so "10" comes before "100".
+            (Int(lhs) ?? .max, lhs) < (Int(rhs) ?? .max, rhs)
+        }
+    }
+
+    @ViewBuilder
+    private var pinnedStopsSection: some View {
+        if !pinnedStops.isEmpty || !pinnedBusNumbers.isEmpty {
+            VStack(alignment: .leading, spacing: 10) {
+                HStack(spacing: 6) {
+                    Image(systemName: "star.fill")
+                        .font(.system(size: 11, weight: .bold))
+                        .foregroundStyle(Color.appAmber)
+                    Text("Pinned")
+                        .font(.system(size: 14, weight: .bold))
+                        .foregroundStyle(Color.cfTextPrimary)
+                }
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 8) {
+                        // Buses first (most compact, action-oriented).
+                        ForEach(pinnedBusNumbers, id: \.self) { number in
+                            pinnedBusChip(number)
+                        }
+                        ForEach(pinnedStops) { stop in
+                            pinnedStopChip(stop)
+                        }
+                    }
+                }
+                .scrollClipDisabled()
+            }
+            .padding(.top, 4)
+        }
+    }
+
+    private func pinnedStopChip(_ stop: BusStop) -> some View {
+        Button {
+            stopSheet = StopSheetData(stop: stop, arrivals: [])
+        } label: {
+            HStack(spacing: 8) {
+                BusStopIcon(size: 12, color: Color.cfTextSecondary, strokeWidth: 2.2)
+                VStack(alignment: .leading, spacing: 1) {
+                    Text(stop.name)
+                        .font(.system(size: 12, weight: .bold))
+                        .foregroundStyle(Color.cfTextPrimary)
+                        .lineLimit(1)
+                    Text("Stop \(stop.id)")
+                        .font(.system(size: 9, weight: .medium))
+                        .monospacedDigit()
+                        .foregroundStyle(Color.cfTextTertiary)
+                }
+            }
+            .padding(.horizontal, 12)
+            .padding(.vertical, 8)
+            .glassSurface(cornerRadius: 12, fill: Color.cfGlassFillSoft)
+        }
+        .buttonStyle(CardButtonStyle(pressedScale: 0.95))
+    }
+
+    private func pinnedBusChip(_ serviceNo: String) -> some View {
+        Button { handlePinnedBus(serviceNo) } label: {
+            HStack(spacing: 6) {
+                ServiceChip(service: serviceNo, size: .sm)
+                Text("Bus")
+                    .font(.system(size: 9, weight: .semibold))
+                    .tracking(0.4)
+                    .foregroundStyle(Color.cfTextTertiary)
+            }
+            .padding(.horizontal, 10)
+            .padding(.vertical, 6)
+            .glassSurface(cornerRadius: 12, fill: Color.cfGlassFillSoft)
+        }
+        .buttonStyle(CardButtonStyle(pressedScale: 0.92))
+        .accessibilityLabel("Pinned bus \(serviceNo)")
+    }
+
+    /// Tapping a pinned bus opens its live tracking from the nearest stop
+    /// where it's currently arriving. If no nearby stop has live data for
+    /// this service, surface a quiet toast instead — silently doing nothing
+    /// would feel broken.
+    private func handlePinnedBus(_ serviceNo: String) {
+        for entry in viewModel.nearbyBusStops {
+            if let arrival = entry.arrivals.first(where: { $0.serviceNo == serviceNo }) {
+                navigation.go(.tracking(arrival, busStopCode: entry.stop.id))
+                return
+            }
+        }
+        Task { @MainActor in
+            ToastCenter.shared.show(.info("Bus \(serviceNo) not arriving nearby"))
         }
     }
 

@@ -24,4 +24,12 @@ enum SoundEffect {
         // 1521 = "ReceivedMessage" — short, distinct, slightly heavier.
         AudioServicesPlaySystemSound(1521)
     }
+
+    /// A soft keyboard-style tap, used for "deselect" or "remove" actions
+    /// like un-starring a stop. Quieter than `playSuccess` so the unsave
+    /// doesn't feel as celebratory as the save.
+    static func playTap() {
+        // 1104 = a soft keyboard tap, used in iOS for selection cues.
+        AudioServicesPlaySystemSound(1104)
+    }
 }

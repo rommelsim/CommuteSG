@@ -2,17 +2,14 @@ import SwiftUI
 
 /// One stop's section inside the grouped "Nearby transit" container.
 ///
-/// Tap zones (from largest to most specific, inner zones win):
+/// Tap zones (inner zones win, all with `CardButtonStyle` press animation):
 ///   • Anywhere in the section that isn't a more specific control →
-///     opens the bus-stop detail sheet (`onTapStop`).
-///   • Each bus row (a Button with a 44pt-tall hit area) → opens live
-///     tracking for that bus (`onTapBus`).
+///     opens the bus-stop detail sheet (`onTapStop`). Whole card scales.
+///   • Each bus row (chip + ETA, two narrow buttons) → opens live
+///     tracking for that bus (`onTapBus`). Just the row scales.
 ///   • The walk-time / chevron pill on the right of the header → toggles
-///     expand/collapse inline.
+///     expand/collapse inline. Just the pill scales.
 ///   • The "+N more" link → expands.
-///
-/// The outer `.onTapGesture` only fires when no nested Button consumed the
-/// tap, which is how SwiftUI handles tap propagation cleanly.
 struct NearbyBusStopCard: View {
     let stop: BusStop
     let arrivals: [BusArrival]
@@ -32,31 +29,33 @@ struct NearbyBusStopCard: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            header
-                .padding(.horizontal, 16)
-                .padding(.top, 10)
-
-            ForEach(Array(visibleArrivals.enumerated()), id: \.offset) { _, arrival in
-                busRow(arrival)
-            }
-
-            if !isExpanded && hiddenCount > 0 {
-                moreButton
-            } else {
-                Spacer().frame(height: 8)
-            }
-        }
-        .contentShape(Rectangle())
-        .onTapGesture {
-            UIImpactFeedbackGenerator(style: .light).impactOccurred()
+        Button {
             onTapStop()
+        } label: {
+            VStack(alignment: .leading, spacing: 0) {
+                header
+                    .padding(.horizontal, 16)
+                    .padding(.top, 10)
+
+                ForEach(Array(visibleArrivals.enumerated()), id: \.offset) { _, arrival in
+                    busRow(arrival)
+                }
+
+                if !isExpanded && hiddenCount > 0 {
+                    moreButton
+                } else {
+                    Spacer().frame(height: 8)
+                }
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .contentShape(Rectangle())
         }
+        .buttonStyle(CardButtonStyle(pressedScale: 0.985))
     }
 
     private var header: some View {
         HStack(spacing: 8) {
-            BusStopIcon(size: 13, color: Color.black.opacity(0.60), strokeWidth: 2.2)
+            BusStopIcon(size: 13, color: Color.cfTextSecondary, strokeWidth: 2.2)
             Text(stop.name)
                 .font(.system(size: 14, weight: .bold))
                 .foregroundStyle(Color.cfTextPrimary)
@@ -70,11 +69,11 @@ struct NearbyBusStopCard: View {
                 HStack(spacing: 6) {
                     Image(systemName: "figure.walk")
                         .font(.system(size: 11, weight: .semibold))
-                        .foregroundStyle(Color.black.opacity(0.45))
+                        .foregroundStyle(Color.cfTextTertiary)
                     Text("\(walkMinutes) min")
                         .font(.system(size: 12, weight: .bold))
                         .monospacedDigit()
-                        .foregroundStyle(Color.black.opacity(0.65))
+                        .foregroundStyle(Color.cfTextSecondary)
                     Image(systemName: "chevron.down")
                         .font(.system(size: 10, weight: .bold))
                         .foregroundStyle(Color.cfTextMuted)
@@ -84,15 +83,14 @@ struct NearbyBusStopCard: View {
                 .padding(.leading, 12)
                 .contentShape(Rectangle())
             }
-            .buttonStyle(.plain)
+            .buttonStyle(CardButtonStyle(pressedScale: 0.92))
         }
     }
 
     /// Bus row uses TWO narrow buttons (chip on the left, ETA cluster on the
-    /// right) instead of one full-width button. The middle Spacer is plain
-    /// layout — taps there have no inner button to consume them, so they
-    /// fall through to the outer `.onTapGesture` and open the stop sheet.
-    /// Each button keeps a 44pt-tall hit area via vertical padding.
+    /// right). The middle Spacer is plain layout — taps there have no inner
+    /// button to consume them, so they fall through to the outer Button and
+    /// open the stop sheet. Each tap target keeps a 44pt-tall hit area.
     private func busRow(_ arrival: BusArrival) -> some View {
         HStack(spacing: 10) {
             Button { onTapBus(arrival) } label: {
@@ -100,7 +98,7 @@ struct NearbyBusStopCard: View {
                     .padding(.vertical, 10)
                     .contentShape(Rectangle())
             }
-            .buttonStyle(.plain)
+            .buttonStyle(CardButtonStyle(pressedScale: 0.92))
             .accessibilityLabel("Track bus \(arrival.serviceNo)")
 
             Spacer(minLength: 0)
@@ -119,7 +117,7 @@ struct NearbyBusStopCard: View {
                 .padding(.vertical, 10)
                 .contentShape(Rectangle())
             }
-            .buttonStyle(.plain)
+            .buttonStyle(CardButtonStyle(pressedScale: 0.92))
             .accessibilityHidden(true)  // duplicate of the chip button for VoiceOver
         }
         .padding(.horizontal, 16)
@@ -137,6 +135,6 @@ struct NearbyBusStopCard: View {
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .contentShape(Rectangle())
         }
-        .buttonStyle(.plain)
+        .buttonStyle(CardButtonStyle(pressedScale: 0.95))
     }
 }
