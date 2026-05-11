@@ -53,6 +53,10 @@ final class HomeViewModel {
 
     @MainActor
     func load() async {
+        // Skip if data is already loaded — prevents state-transition churn
+        // when the view re-appears (e.g. popping back from LiveTracking),
+        // which would otherwise rebuild the List and lose scroll position.
+        guard loadingState != .ready else { return }
         await runFlow(forceRefreshStops: false)
     }
 

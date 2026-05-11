@@ -20,8 +20,10 @@ struct LiveBadge: View {
     var granularity: Granularity = .coarse
     var onRefresh: (() -> Void)? = nil
 
-    @State private var pulse = false
+    @State private var ringScale: CGFloat = 1.0
+    @State private var ringOpacity: Double = 0.0
     @State private var nowTick = Date()
+    @State private var tapCount = 0
     private let timer = Timer.publish(every: 1, on: .main, in: .common).autoconnect()
 
     private var elapsed: Int {
@@ -30,23 +32,38 @@ struct LiveBadge: View {
     }
 
     private var isStale: Bool { elapsed >= 300 }
+    private var isPulsing: Bool { mode == .live && elapsed < 60 }
 
     var body: some View {
         Group {
-            if isStale, let onRefresh {
-                Button(action: onRefresh) { content }
+            if let onRefresh {
+                Button {
+                    tapCount &+= 1
+                    onRefresh()
+                } label: { content }
                     .buttonStyle(.plain)
                     .accessibilityLabel(accessibilityLabel)
+                    .accessibilityHint("Tap to refresh")
+                    .sensoryFeedback(.impact(weight: .light), trigger: tapCount)
             } else {
                 content
                     .accessibilityLabel(accessibilityLabel)
             }
         }
         .onReceive(timer) { nowTick = $0 }
-        .task {
-            guard mode == .live else { return }
-            withAnimation(.easeInOut(duration: 1.4).repeatForever(autoreverses: true)) {
-                pulse = true
+        .onChange(of: isPulsing, initial: true) { _, pulsing in
+            if pulsing {
+                ringScale = 1.0
+                ringOpacity = 0.7
+                withAnimation(.easeOut(duration: 1.6).repeatForever(autoreverses: false)) {
+                    ringScale = 3.0
+                    ringOpacity = 0.0
+                }
+            } else {
+                withAnimation(.easeOut(duration: 0.2)) {
+                    ringOpacity = 0.0
+                    ringScale = 1.0
+                }
             }
         }
     }
@@ -74,13 +91,17 @@ struct LiveBadge: View {
                 Image(systemName: "arrow.clockwise")
                     .font(.system(size: 10, weight: .semibold))
             } else {
-                Circle()
-                    .fill(Color.appSuccessStrong)
-                    .frame(width: 6, height: 6)
-                    // Pulse only while data is genuinely "live" (< 1 min) —
-                    // a steady dot at 1–5 min keeps the visual quiet for the
-                    // common case where polling has just paused.
-                    .opacity(elapsed < 60 && pulse ? 0.55 : 1.0)
+                ZStack {
+                    Circle()
+                        .stroke(Color.appSuccessStrong, lineWidth: 1.2)
+                        .frame(width: 6, height: 6)
+                        .scaleEffect(ringScale)
+                        .opacity(ringOpacity)
+                    Circle()
+                        .fill(Color.appSuccessStrong)
+                        .frame(width: 6, height: 6)
+                }
+                .frame(width: 6, height: 6)
             }
         case .demo:
             ProgressView()
@@ -121,8 +142,7 @@ struct LiveBadge: View {
         case .live:
             if isStale {
                 let mins = elapsed / 60
-                let suffix = onRefresh != nil ? ", tap to refresh" : ""
-                return "Data \(mins) minute\(mins == 1 ? "" : "s") old\(suffix)"
+                return "Data \(mins) minute\(mins == 1 ? "" : "s") old"
             }
             return "Live data"
         }

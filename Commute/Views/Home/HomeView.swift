@@ -153,7 +153,10 @@ struct HomeView: View {
             HStack(spacing: Spacing.s8) {
                 LiveBadge(
                     mode: viewModel.dataMode == .live ? .live : .demo,
-                    lastUpdated: viewModel.lastSuccessfulRefresh
+                    lastUpdated: viewModel.lastSuccessfulRefresh,
+                    onRefresh: {
+                        Task { await viewModel.refresh() }
+                    }
                 )
                 Button {
                     navigation.go(.profile)

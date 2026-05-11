@@ -14,7 +14,10 @@
       "Bash(sips -g all Commute/Assets.xcassets/AppIcon.appiconset/AppIcon-1024.png)",
       "Bash(sips -g profile Commute/Assets.xcassets/AppIcon.appiconset/AppIcon-1024.png)",
       "Bash(pngcheck -v Commute/Assets.xcassets/AppIcon.appiconset/AppIcon-1024.png)",
-      "Bash(xxd Commute/Assets.xcassets/AppIcon.appiconset/AppIcon-1024.png)"
+      "Bash(xxd Commute/Assets.xcassets/AppIcon.appiconset/AppIcon-1024.png)",
+      "Bash(xcodebuild -project Commute.xcodeproj -scheme Commute -destination 'platform=iOS Simulator,name=iPhone 15' build)",
+      "Bash(DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer xcodebuild -project Commute.xcodeproj -scheme Commute -destination 'platform=iOS Simulator,name=iPhone 15' build)",
+      "Bash(DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer xcodebuild -project Commute.xcodeproj -scheme Commute -destination 'platform=iOS Simulator,name=iPhone 17' build)"
     ]
   }
 }
