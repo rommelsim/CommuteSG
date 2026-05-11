@@ -2,6 +2,7 @@ import SwiftUI
 
 struct JourneyOptionCard: View {
     let option: JourneyOption
+    var isBest: Bool = false
     let departureMode: PlanViewModel.DepartureMode
     let action: () -> Void
 
@@ -14,11 +15,11 @@ struct JourneyOptionCard: View {
             }
             .padding(Spacing.cardInner)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .background(option.isBest ? Color.appInfoBg : Color.appSurface)
+            .background(isBest ? Color.appInfoBg : Color.appSurface)
             .overlay(
                 RoundedRectangle(cornerRadius: Radius.card, style: .continuous)
-                    .stroke(option.isBest ? Color.appInfo : Color.appBorder,
-                            lineWidth: option.isBest ? 1.25 : 0.5)
+                    .stroke(isBest ? Color.appInfo : Color.appBorder,
+                            lineWidth: isBest ? 1.25 : 0.5)
             )
             .clipShape(RoundedRectangle(cornerRadius: Radius.card, style: .continuous))
         }
@@ -50,7 +51,7 @@ struct JourneyOptionCard: View {
                 .contentTransition(.numericText())
                 .animation(.snappy, value: option.durationMinutes)
             Spacer(minLength: 6)
-            if option.isBest {
+            if isBest {
                 Text("Best")
                     .font(.appMicroStrong)
                     .padding(.horizontal, 7)

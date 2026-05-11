@@ -20,8 +20,8 @@ struct JourneyPickerSheet: View {
 
         var placeholder: String {
             switch self {
-            case .from: "Search station, road, or stop code"
-            case .to:   "Search station, road, or stop code"
+            case .from: "Search station, road, or postal code"
+            case .to:   "Search station, road, or postal code"
             }
         }
     }
@@ -72,7 +72,10 @@ struct JourneyPickerSheet: View {
         let trimmed = search.query.trimmingCharacters(in: .whitespaces)
         if trimmed.isEmpty {
             shortcutsList
-        } else if search.busStopResults.isEmpty && search.mrtResults.isEmpty && !search.isSearching {
+        } else if search.busStopResults.isEmpty &&
+                    search.mrtResults.isEmpty &&
+                    search.addressResults.isEmpty &&
+                    !search.isSearching {
             noResultsView(for: trimmed)
         } else {
             resultsList(query: trimmed)
@@ -116,7 +119,7 @@ struct JourneyPickerSheet: View {
                     }
                 }
 
-                Text("Type a station name, road, or 5-digit stop code to search.")
+                Text("Type a station name, road, postal code, or 5-digit stop code to search.")
                     .font(.appCaption)
                     .foregroundStyle(Color.appText3)
                     .frame(maxWidth: .infinity, alignment: .leading)
@@ -134,6 +137,22 @@ struct JourneyPickerSheet: View {
     private func resultsList(query: String) -> some View {
         ScrollView {
             VStack(alignment: .leading, spacing: Spacing.s20) {
+                if !search.addressResults.isEmpty {
+                    VStack(alignment: .leading, spacing: 6) {
+                        sectionHeader("Addresses")
+                        VStack(spacing: 0) {
+                            ForEach(search.addressResults) { addr in
+                                Button {
+                                    pick(addr.displayValue)
+                                } label: {
+                                    addressRow(addr)
+                                }
+                                .buttonStyle(.plain)
+                            }
+                        }
+                    }
+                }
+
                 if !search.mrtResults.isEmpty {
                     VStack(alignment: .leading, spacing: 6) {
                         sectionHeader("MRT stations")
@@ -245,6 +264,36 @@ struct JourneyPickerSheet: View {
                     .font(.appMicro)
                     .foregroundStyle(Color.appText3)
             }
+            Image(systemName: "chevron.right")
+                .font(.system(size: 12, weight: .semibold))
+                .foregroundStyle(Color.appText3)
+        }
+        .padding(.vertical, 10)
+        .padding(.horizontal, Spacing.screen)
+        .contentShape(Rectangle())
+    }
+
+    private func addressRow(_ addr: AddressResult) -> some View {
+        HStack(spacing: 12) {
+            Image(systemName: "mappin.circle.fill")
+                .font(.system(size: 16, weight: .medium))
+                .foregroundStyle(Color.appInfo)
+                .frame(width: 32, height: 32)
+                .background(Color.appInfoBg)
+                .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+            VStack(alignment: .leading, spacing: 2) {
+                Text(addr.title)
+                    .font(.appBodyMedium)
+                    .foregroundStyle(Color.appText)
+                    .lineLimit(1)
+                if !addr.subtitle.isEmpty {
+                    Text(addr.subtitle)
+                        .font(.appCaption)
+                        .foregroundStyle(Color.appText2)
+                        .lineLimit(1)
+                }
+            }
+            Spacer()
             Image(systemName: "chevron.right")
                 .font(.system(size: 12, weight: .semibold))
                 .foregroundStyle(Color.appText3)

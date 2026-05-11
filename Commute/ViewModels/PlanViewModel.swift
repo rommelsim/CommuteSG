@@ -56,13 +56,25 @@ final class PlanViewModel {
     }
     var filter: Filter = .fastest
     var departureMode: DepartureMode = .now
-    private(set) var options: [JourneyOption]
+    private(set) var rawOptions: [JourneyOption]
+
+    /// Sorted view of `rawOptions` based on the active filter. The first
+    /// option in the returned array is the "best" pick under that filter.
+    var options: [JourneyOption] {
+        rawOptions.sorted { a, b in
+            switch filter {
+            case .fastest:  return a.durationMinutes < b.durationMinutes
+            case .cheapest: return a.fareSGD < b.fareSGD
+            case .lessWalk: return a.walkMinutes < b.walkMinutes
+            }
+        }
+    }
 
     private let mock: MockDataService
 
     init(mock: MockDataService = .shared) {
         self.mock = mock
-        self.options = mock.journeyOptions(
+        self.rawOptions = mock.journeyOptions(
             from: Self.defaultFrom,
             to: Self.defaultTo,
             originHint: LocationService.shared.lastLocation?.coordinate
@@ -79,7 +91,7 @@ final class PlanViewModel {
     func recompute() {
         let originHint = LocationService.shared.lastLocation?.coordinate
         withAnimation(.smooth(duration: 0.25)) {
-            options = mock.journeyOptions(from: fromText, to: toText, originHint: originHint)
+            rawOptions = mock.journeyOptions(from: fromText, to: toText, originHint: originHint)
         }
     }
 

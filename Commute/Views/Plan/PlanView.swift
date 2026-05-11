@@ -307,8 +307,12 @@ struct PlanView: View {
 
     private var options: some View {
         VStack(spacing: Spacing.cardGap) {
-            ForEach(viewModel.options) { opt in
-                JourneyOptionCard(option: opt, departureMode: viewModel.departureMode) {
+            ForEach(Array(viewModel.options.enumerated()), id: \.element.id) { idx, opt in
+                JourneyOptionCard(
+                    option: opt,
+                    isBest: idx == 0,
+                    departureMode: viewModel.departureMode
+                ) {
                     navigation.go(.journey(
                         opt,
                         mode: viewModel.departureMode,
@@ -325,6 +329,7 @@ struct PlanView: View {
             }
             .padding(.top, 4)
         }
+        .animation(.smooth(duration: 0.25), value: viewModel.filter)
     }
 
     @ViewBuilder
