@@ -1,0 +1,7 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(xcodebuild -project Commute.xcodeproj -scheme Commute -configuration Release -destination 'generic/platform=iOS' -quiet build)"
+    ]
+  }
+}

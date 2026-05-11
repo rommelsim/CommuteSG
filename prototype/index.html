@@ -1,0 +1,2666 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>TransitSG — Interactive Prototype</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@2.47.0/tabler-icons.min.css">
+<style>
+:root {
+  --bg: #F1EFE8;
+  --surface: #FFFFFF;
+  --surface-2: #F1EFE8;
+  --border: rgba(0,0,0,0.08);
+  --border-strong: rgba(0,0,0,0.15);
+  --text: #1A1A1C;
+  --text-2: #5F5E5A;
+  --text-3: #888780;
+  --info-bg: #E6F1FB;
+  --info: #185FA5;
+  --info-strong: #042C53;
+  --success-bg: #EAF3DE;
+  --success: #3B6D11;
+  --success-strong: #173404;
+  --warning-bg: #FAEEDA;
+  --warning: #854F0B;
+  --warning-strong: #412402;
+  --danger-bg: #FCEBEB;
+  --danger: #A32D2D;
+  --danger-strong: #501313;
+  --purple-bg: #EEEDFE;
+  --purple: #534AB7;
+  --purple-strong: #3C3489;
+  --amber: #BA7517;
+  --radius: 10px;
+  --radius-lg: 16px;
+}
+
+[data-theme="dark"] {
+  --bg: #050507;
+  --surface: #0F0F11;
+  --surface-2: #1A1A1C;
+  --border: rgba(255,255,255,0.08);
+  --border-strong: rgba(255,255,255,0.15);
+  --text: #F1EFE8;
+  --text-2: #B4B2A9;
+  --text-3: #888780;
+  --info-bg: #042C53;
+  --info: #85B7EB;
+  --info-strong: #B5D4F4;
+  --success-bg: #173404;
+  --success: #97C459;
+  --success-strong: #C0DD97;
+  --warning-bg: #412402;
+  --warning: #EF9F27;
+  --warning-strong: #FAC775;
+  --danger-bg: #501313;
+  --danger: #F09595;
+  --danger-strong: #F7C1C1;
+  --purple-bg: #26215C;
+  --purple: #AFA9EC;
+  --purple-strong: #CECBF6;
+  --amber: #EF9F27;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Segoe UI', Roboto, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  transition: background 0.3s, color 0.3s;
+  font-size: 15px;
+  line-height: 1.5;
+}
+
+.device-frame {
+  width: 100%;
+  max-width: 390px;
+  height: min(844px, calc(100vh - 40px));
+  background: var(--surface);
+  border-radius: 44px;
+  border: 0.5px solid var(--border);
+  box-shadow: 0 0 0 8px #1A1A1C, 0 30px 60px rgba(0,0,0,0.25);
+  position: relative;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+@media (max-width: 480px) {
+  body { padding: 0; }
+  .device-frame {
+    border-radius: 0;
+    box-shadow: none;
+    border: none;
+    height: 100vh;
+    height: 100dvh;
+    max-width: 100%;
+  }
+}
+
+/* iOS notch */
+.notch {
+  position: absolute;
+  top: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 120px;
+  height: 30px;
+  background: #1A1A1C;
+  border-radius: 0 0 18px 18px;
+  z-index: 10;
+}
+
+@media (max-width: 480px) {
+  .notch { display: none; }
+}
+
+/* Status bar */
+.status-bar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 14px 28px 6px;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text);
+  flex-shrink: 0;
+}
+
+.status-bar .right {
+  display: flex;
+  gap: 5px;
+  align-items: center;
+  font-size: 13px;
+}
+
+/* Screen container */
+.screen-container {
+  flex: 1;
+  overflow: hidden;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+}
+
+.screen {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  background: var(--surface);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.25s ease;
+  overflow: hidden;
+}
+
+.screen.active {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.screen-content {
+  flex: 1;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  padding-bottom: 12px;
+}
+
+.screen-content::-webkit-scrollbar { width: 0; }
+
+/* Headers */
+.app-header {
+  padding: 10px 20px 14px;
+  flex-shrink: 0;
+}
+
+.app-header.with-back {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.app-header h1 {
+  font-size: 26px;
+  font-weight: 600;
+  letter-spacing: -0.5px;
+  margin: 0;
+}
+
+.app-header .greet {
+  font-size: 14px;
+  color: var(--text-2);
+  margin-bottom: 2px;
+}
+
+.icon-btn {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: var(--surface-2);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  border: none;
+  color: var(--text);
+  font-size: 18px;
+  transition: transform 0.1s, background 0.2s;
+  flex-shrink: 0;
+}
+
+.icon-btn:active { transform: scale(0.92); }
+
+.icon-btn.avatar {
+  background: var(--info-bg);
+  color: var(--info);
+  font-weight: 600;
+  font-size: 14px;
+}
+
+/* Search */
+.search-bar {
+  margin: 0 20px 16px;
+  padding: 12px 16px;
+  background: var(--surface-2);
+  border-radius: var(--radius);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.search-bar:active { background: var(--border-strong); }
+.search-bar i { font-size: 18px; color: var(--text-2); }
+.search-bar span { font-size: 14px; color: var(--text-3); }
+
+/* Shortcuts grid */
+.shortcuts {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin: 0 20px 18px;
+}
+
+.shortcut {
+  padding: 14px;
+  border-radius: var(--radius);
+  cursor: pointer;
+  transition: transform 0.1s;
+  border: none;
+  text-align: left;
+  font-family: inherit;
+}
+
+.shortcut:active { transform: scale(0.97); }
+
+.shortcut.home {
+  background: var(--info-bg);
+  color: var(--info);
+}
+
+.shortcut.work {
+  background: var(--purple-bg);
+  color: var(--purple-strong);
+}
+
+.shortcut i { font-size: 22px; display: block; margin-bottom: 6px; }
+.shortcut .label { font-size: 13px; font-weight: 600; }
+.shortcut .time { font-size: 12px; opacity: 0.8; margin-top: 2px; }
+
+/* Section header */
+.section-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  margin: 0 20px 10px;
+}
+
+.section-head h2 {
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.section-head .meta {
+  font-size: 12px;
+  color: var(--text-2);
+}
+
+/* Cards */
+.card {
+  margin: 0 20px 10px;
+  padding: 14px;
+  border: 0.5px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+  cursor: pointer;
+  transition: transform 0.1s, background 0.2s;
+}
+
+.card:active {
+  transform: scale(0.99);
+  background: var(--surface-2);
+}
+
+.card.highlight {
+  border: 1.5px solid var(--info);
+  background: var(--info-bg);
+}
+
+.card-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.card-row:last-child { margin-bottom: 0; }
+
+.card-title {
+  font-size: 14px;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.line-badge {
+  background: var(--info-strong);
+  color: white;
+  font-size: 10px;
+  font-weight: 600;
+  padding: 3px 7px;
+  border-radius: 4px;
+  letter-spacing: 0.3px;
+}
+
+[data-theme="dark"] .line-badge {
+  background: #378ADD;
+  color: #042C53;
+}
+
+.line-badge.ew { background: #009645; }
+.line-badge.ns { background: #D42E12; }
+.line-badge.ne { background: #9900AA; }
+.line-badge.cc { background: #FA9E0D; color: #4A1B0C; }
+.line-badge.dt { background: #005EC4; }
+.line-badge.tl { background: #9D5918; }
+.line-badge.ce { background: #FA9E0D; color: #4A1B0C; }
+
+.distance {
+  font-size: 11px;
+  color: var(--text-3);
+}
+
+/* Bus arrivals row */
+.arrivals {
+  display: flex;
+  gap: 8px;
+}
+
+.arrival {
+  flex: 1;
+  padding: 10px 6px;
+  background: var(--surface-2);
+  border-radius: 8px;
+  text-align: center;
+}
+
+.arrival.urgent {
+  background: var(--success-bg);
+  color: var(--success-strong);
+}
+
+.arrival.warning {
+  background: var(--warning-bg);
+  color: var(--warning-strong);
+}
+
+.arrival .num {
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.arrival .min {
+  font-size: 11px;
+  margin-top: 2px;
+  opacity: 0.85;
+}
+
+/* Status text inline */
+.status-inline {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 12px;
+}
+
+.status-inline.success { color: var(--success); }
+.status-inline.warning { color: var(--warning); }
+
+/* Bottom tab bar */
+.tab-bar {
+  display: flex;
+  justify-content: space-around;
+  padding: 8px 8px calc(8px + env(safe-area-inset-bottom));
+  background: var(--surface);
+  border-top: 0.5px solid var(--border);
+  flex-shrink: 0;
+}
+
+.tab {
+  flex: 1;
+  padding: 8px 4px;
+  text-align: center;
+  cursor: pointer;
+  border: none;
+  background: none;
+  color: var(--text-3);
+  font-family: inherit;
+  position: relative;
+  transition: color 0.2s;
+}
+
+.tab:active { transform: scale(0.95); }
+
+.tab i {
+  font-size: 22px;
+  display: block;
+  margin-bottom: 2px;
+}
+
+.tab .tab-label {
+  font-size: 10px;
+  font-weight: 500;
+}
+
+.tab.active {
+  color: var(--info);
+}
+
+.tab.active .tab-label { font-weight: 600; }
+
+.tab .badge-dot {
+  position: absolute;
+  top: 6px;
+  right: calc(50% - 14px);
+  width: 8px;
+  height: 8px;
+  background: #E24B4A;
+  border-radius: 50%;
+  border: 2px solid var(--surface);
+}
+
+/* Plan journey */
+.from-to {
+  margin: 0 20px 14px;
+  padding: 14px 16px;
+  background: var(--surface-2);
+  border-radius: var(--radius);
+}
+
+.from-to-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 6px 0;
+}
+
+.from-to-row:first-child {
+  border-bottom: 0.5px solid var(--border);
+  padding-bottom: 8px;
+}
+
+.from-to-row:last-child {
+  padding-top: 8px;
+}
+
+.dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--info);
+  flex-shrink: 0;
+}
+
+.dot.dest {
+  border-radius: 2px;
+  background: #D85A30;
+}
+
+.from-to-row span:last-child {
+  font-size: 14px;
+  font-weight: 500;
+}
+
+/* Filter pills */
+.pills {
+  display: flex;
+  gap: 8px;
+  margin: 0 20px 14px;
+  overflow-x: auto;
+  padding-bottom: 4px;
+}
+
+.pills::-webkit-scrollbar { display: none; }
+
+.pill {
+  padding: 7px 14px;
+  border-radius: 20px;
+  font-size: 13px;
+  font-weight: 500;
+  border: 0.5px solid var(--border-strong);
+  background: var(--surface);
+  color: var(--text);
+  cursor: pointer;
+  white-space: nowrap;
+  flex-shrink: 0;
+  font-family: inherit;
+  transition: all 0.2s;
+}
+
+.pill.active {
+  background: var(--text);
+  color: var(--surface);
+  border-color: var(--text);
+}
+
+.pill:active { transform: scale(0.95); }
+
+/* Route mini */
+.route-mini {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 8px;
+  flex-wrap: wrap;
+}
+
+.route-mini i { font-size: 14px; color: var(--text-2); }
+.route-mini .seg {
+  font-size: 11px;
+  font-weight: 600;
+  padding: 2px 6px;
+  border-radius: 4px;
+  background: var(--surface-2);
+}
+
+.route-mini .seg.line {
+  color: white;
+}
+
+.route-mini .seg.line.ew { background: #009645; }
+.route-mini .seg.line.ce { background: #FA9E0D; color: #4A1B0C; }
+
+.badge-best {
+  background: var(--info-bg);
+  color: var(--info);
+  font-size: 11px;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 10px;
+}
+
+[data-theme="dark"] .badge-best {
+  background: var(--info);
+  color: var(--info-bg);
+}
+
+/* Map area */
+.map-area {
+  margin: 0 20px 14px;
+  height: 160px;
+  background: var(--success-bg);
+  border-radius: var(--radius);
+  position: relative;
+  overflow: hidden;
+}
+
+.map-area .road-h {
+  position: absolute;
+  top: 50%;
+  left: 0;
+  right: 0;
+  height: 6px;
+  background: rgba(0,0,0,0.12);
+  transform: translateY(-50%);
+}
+
+[data-theme="dark"] .map-area .road-h { background: rgba(255,255,255,0.15); }
+
+.map-area .road-v {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 60%;
+  width: 6px;
+  background: rgba(0,0,0,0.12);
+}
+
+[data-theme="dark"] .map-area .road-v { background: rgba(255,255,255,0.15); }
+
+.map-area .stop-marker {
+  position: absolute;
+  width: 10px;
+  height: 10px;
+  background: var(--surface);
+  border: 2px solid var(--text-2);
+  border-radius: 50%;
+}
+
+.map-area .bus-marker {
+  position: absolute;
+  width: 28px;
+  height: 28px;
+  background: var(--info-bg);
+  border: 2px solid var(--info);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 2;
+}
+
+.map-area .bus-marker i { font-size: 14px; color: var(--info); }
+
+.map-area .pulse {
+  position: absolute;
+  border: 2px solid var(--info);
+  border-radius: 50%;
+  opacity: 0;
+  animation: pulse 2s ease-out infinite;
+}
+
+@keyframes pulse {
+  0% { width: 28px; height: 28px; opacity: 0.6; }
+  100% { width: 80px; height: 80px; opacity: 0; }
+}
+
+.map-area .label-tag {
+  position: absolute;
+  bottom: 10px;
+  right: 10px;
+  padding: 4px 8px;
+  background: var(--surface);
+  border-radius: 6px;
+  font-size: 11px;
+  font-weight: 500;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+}
+
+/* ETA card */
+.eta-card {
+  margin: 0 20px 14px;
+  padding: 16px;
+  background: var(--info-bg);
+  border-radius: var(--radius);
+}
+
+.eta-card .label {
+  font-size: 12px;
+  color: var(--info);
+  opacity: 0.85;
+}
+
+.eta-card .value {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  margin-top: 4px;
+}
+
+.eta-card .num {
+  font-size: 36px;
+  font-weight: 700;
+  color: var(--info-strong);
+  letter-spacing: -1px;
+}
+
+[data-theme="dark"] .eta-card .num { color: var(--text); }
+
+.eta-card .unit {
+  font-size: 16px;
+  color: var(--info);
+}
+
+.eta-card .meta {
+  margin-left: auto;
+  font-size: 12px;
+  color: var(--info);
+  opacity: 0.85;
+}
+
+/* Detail rows */
+.detail-card {
+  margin: 0 20px 14px;
+  padding: 14px;
+  border: 0.5px solid var(--border);
+  border-radius: var(--radius);
+}
+
+.detail-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 0;
+}
+
+.detail-row + .detail-row {
+  border-top: 0.5px solid var(--border);
+}
+
+.detail-row .key {
+  font-size: 13px;
+  color: var(--text-2);
+}
+
+.detail-row .val {
+  font-size: 13px;
+  font-weight: 500;
+}
+
+/* Crowd indicator */
+.crowd {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.crowd .bar {
+  width: 5px;
+  height: 12px;
+  background: var(--border-strong);
+  border-radius: 2px;
+}
+
+.crowd .bar.on {
+  background: var(--success);
+}
+
+.crowd.medium .bar.on { background: var(--warning); }
+.crowd.high .bar.on { background: var(--danger); }
+
+.crowd .text {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--success);
+  margin-left: 4px;
+}
+
+.crowd.medium .text { color: var(--warning); }
+.crowd.high .text { color: var(--danger); }
+
+/* Stops timeline */
+.timeline {
+  margin: 0 20px 14px;
+}
+
+.timeline h3 {
+  font-size: 12px;
+  color: var(--text-2);
+  font-weight: 500;
+  margin-bottom: 10px;
+}
+
+.timeline-stop {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 0;
+}
+
+.timeline-stop .marker {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: var(--info);
+  flex-shrink: 0;
+}
+
+.timeline-stop.future .marker { background: var(--border-strong); }
+
+.timeline-stop .name {
+  flex: 1;
+  font-size: 14px;
+}
+
+.timeline-stop.future .name { color: var(--text-2); }
+
+.timeline-stop .eta {
+  font-size: 12px;
+  color: var(--text-2);
+}
+
+/* Alerts */
+.alert {
+  margin: 0 20px 12px;
+  padding: 14px;
+  border-radius: var(--radius);
+}
+
+.alert.danger { background: var(--danger-bg); }
+.alert.warning { background: var(--warning-bg); }
+.alert.info { background: var(--info-bg); }
+.alert.success { background: var(--success-bg); }
+
+.alert-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.alert-head .tag {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.alert-head .time {
+  margin-left: auto;
+  font-size: 11px;
+}
+
+.alert.danger .tag, .alert.danger i { color: var(--danger); }
+.alert.danger .time { color: var(--danger-strong); }
+.alert.warning .tag, .alert.warning i { color: var(--warning); }
+.alert.warning .time { color: var(--warning-strong); }
+.alert.info .tag, .alert.info i { color: var(--info); }
+.alert.info .time { color: var(--info); }
+.alert.success .tag, .alert.success i { color: var(--success); }
+.alert.success .time { color: var(--success-strong); }
+
+.alert h3 {
+  font-size: 15px;
+  font-weight: 600;
+  margin-bottom: 4px;
+}
+
+.alert.danger h3 { color: var(--danger-strong); }
+.alert.warning h3 { color: var(--warning-strong); }
+.alert.info h3 { color: var(--info-strong); }
+.alert.success h3 { color: var(--success-strong); }
+
+.alert p {
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.alert.danger p { color: var(--danger-strong); }
+.alert.warning p { color: var(--warning-strong); }
+.alert.info p { color: var(--info-strong); }
+.alert.success p { color: var(--success-strong); }
+
+/* Fare calculator */
+.toggle-group {
+  margin: 0 20px 16px;
+  padding: 4px;
+  background: var(--surface-2);
+  border-radius: var(--radius);
+  display: flex;
+  gap: 4px;
+}
+
+.toggle-btn {
+  flex: 1;
+  padding: 10px;
+  background: transparent;
+  border: none;
+  border-radius: 8px;
+  font-family: inherit;
+  font-size: 13px;
+  color: var(--text-2);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  transition: all 0.2s;
+}
+
+.toggle-btn.active {
+  background: var(--surface);
+  color: var(--text);
+  font-weight: 600;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+}
+
+.toggle-btn i { font-size: 15px; }
+
+.fare-result {
+  margin: 0 20px 14px;
+  padding: 18px;
+  background: var(--info-bg);
+  border-radius: var(--radius);
+}
+
+.fare-result .label {
+  font-size: 12px;
+  color: var(--info);
+  opacity: 0.85;
+}
+
+.fare-result .row {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  margin-top: 4px;
+}
+
+.fare-result .amount {
+  font-size: 36px;
+  font-weight: 700;
+  color: var(--info-strong);
+  letter-spacing: -1px;
+}
+
+[data-theme="dark"] .fare-result .amount { color: var(--text); }
+
+.fare-result .meta {
+  margin-left: auto;
+  font-size: 12px;
+  color: var(--info);
+  opacity: 0.85;
+}
+
+/* Tip card */
+.tip {
+  margin: 0 20px 14px;
+  padding: 12px 14px;
+  background: var(--success-bg);
+  border-radius: var(--radius);
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+}
+
+.tip i {
+  font-size: 18px;
+  color: var(--success);
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+
+.tip p {
+  font-size: 13px;
+  color: var(--success-strong);
+  line-height: 1.5;
+}
+
+.tip strong { font-weight: 600; }
+
+/* MRT line map */
+.line-status {
+  margin: 0 20px 16px;
+  padding: 10px 14px;
+  background: var(--success-bg);
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.line-status .dot-small {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--success);
+}
+
+.line-status .text {
+  font-size: 13px;
+  color: var(--success-strong);
+  font-weight: 500;
+}
+
+.line-map {
+  margin: 0 20px 14px;
+  padding: 16px 8px;
+}
+
+.line-map h3 {
+  font-size: 12px;
+  color: var(--text-2);
+  font-weight: 500;
+  margin-bottom: 14px;
+  padding: 0 8px;
+}
+
+.stations {
+  position: relative;
+  display: flex;
+  justify-content: space-between;
+  padding: 0 8px;
+}
+
+.stations::before {
+  content: '';
+  position: absolute;
+  top: 18px;
+  left: 24px;
+  right: 24px;
+  height: 4px;
+  background: #009645;
+  border-radius: 2px;
+}
+
+.station-node {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  flex: 1;
+  z-index: 1;
+}
+
+.station-node .node {
+  width: 16px;
+  height: 16px;
+  background: var(--surface);
+  border: 3px solid #009645;
+  border-radius: 50%;
+  margin-top: 10px;
+  margin-bottom: 8px;
+}
+
+.station-node.regular .node {
+  width: 10px;
+  height: 10px;
+  background: #009645;
+  border: none;
+  margin-top: 13px;
+  margin-bottom: 11px;
+}
+
+.station-node.interchange .node {
+  width: 14px;
+  height: 22px;
+  border-radius: 6px;
+  margin-top: 7px;
+  margin-bottom: 8px;
+  position: relative;
+  background: var(--surface);
+  border: 2.5px solid #009645;
+}
+
+.station-node.interchange .node::after {
+  content: '';
+  position: absolute;
+  bottom: -4px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 8px;
+  height: 8px;
+  background: #FA9E0D;
+  border: 2px solid var(--surface);
+  border-radius: 50%;
+}
+
+.station-node .name {
+  font-size: 11px;
+  font-weight: 500;
+  text-align: center;
+  margin-bottom: 2px;
+}
+
+.station-node.regular .name { color: var(--text-2); font-weight: 400; }
+
+.station-node .code {
+  font-size: 10px;
+  color: var(--text-3);
+}
+
+.train-arrivals {
+  margin: 14px 8px 0;
+  padding: 14px;
+  background: var(--surface-2);
+  border-radius: 8px;
+}
+
+.train-arrivals .row {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+
+.train-arrivals .row:last-child { margin-bottom: 0; }
+.train-arrivals .key { font-size: 13px; color: var(--text-2); }
+.train-arrivals .val { font-size: 14px; font-weight: 600; }
+
+/* Exits */
+.exits-grid {
+  margin: 0 20px 14px;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.exit-card {
+  padding: 12px;
+  background: var(--surface-2);
+  border-radius: 8px;
+  cursor: pointer;
+  transition: transform 0.1s;
+}
+
+.exit-card:active { transform: scale(0.97); }
+
+.exit-card .head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 4px;
+}
+
+.exit-card .letter {
+  background: var(--text);
+  color: var(--surface);
+  font-size: 11px;
+  font-weight: 600;
+  padding: 2px 7px;
+  border-radius: 4px;
+}
+
+.exit-card .name {
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.exit-card .meta {
+  font-size: 11px;
+  color: var(--text-2);
+}
+
+/* Profile */
+.user-card {
+  margin: 0 20px 18px;
+  padding: 16px;
+  background: var(--surface-2);
+  border-radius: var(--radius);
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  cursor: pointer;
+}
+
+.user-card .avatar {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  background: var(--info-bg);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 600;
+  font-size: 18px;
+  color: var(--info);
+}
+
+.user-card .info {
+  flex: 1;
+}
+
+.user-card .info .name {
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.user-card .info .meta {
+  font-size: 12px;
+  color: var(--text-2);
+  margin-top: 2px;
+}
+
+.section-label {
+  font-size: 12px;
+  color: var(--text-2);
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  margin: 0 20px 8px;
+  font-weight: 500;
+}
+
+.list-group {
+  margin: 0 20px 18px;
+  border: 0.5px solid var(--border);
+  border-radius: var(--radius);
+  overflow: hidden;
+}
+
+.list-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px;
+  cursor: pointer;
+  background: var(--surface);
+  transition: background 0.2s;
+  border: none;
+  width: 100%;
+  font-family: inherit;
+  text-align: left;
+  color: var(--text);
+}
+
+.list-row + .list-row {
+  border-top: 0.5px solid var(--border);
+}
+
+.list-row:active { background: var(--surface-2); }
+
+.list-row i.lead {
+  font-size: 18px;
+  color: var(--text-2);
+  flex-shrink: 0;
+}
+
+.list-row .lead.info { color: var(--info); }
+.list-row .lead.purple { color: var(--purple); }
+.list-row .lead.amber { color: var(--amber); }
+
+.list-row .label {
+  flex: 1;
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.list-row .value {
+  font-size: 12px;
+  color: var(--text-2);
+}
+
+.list-row i.chev {
+  font-size: 16px;
+  color: var(--text-3);
+}
+
+/* iOS-style toggle */
+.toggle {
+  width: 44px;
+  height: 26px;
+  background: var(--border-strong);
+  border-radius: 13px;
+  position: relative;
+  cursor: pointer;
+  transition: background 0.2s;
+  flex-shrink: 0;
+}
+
+.toggle::after {
+  content: '';
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 22px;
+  height: 22px;
+  background: white;
+  border-radius: 50%;
+  transition: transform 0.2s;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+}
+
+.toggle.on {
+  background: var(--info);
+}
+
+.toggle.on::after {
+  transform: translateX(18px);
+}
+
+/* Onboarding */
+.onboarding-screen {
+  padding: 0 24px;
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+}
+
+.progress-dots {
+  display: flex;
+  gap: 6px;
+  justify-content: center;
+  padding: 16px 0;
+}
+
+.progress-dots .pdot {
+  width: 28px;
+  height: 4px;
+  background: var(--border-strong);
+  border-radius: 2px;
+}
+
+.progress-dots .pdot.active { background: var(--info); }
+.progress-dots .pdot.done { background: var(--text); opacity: 0.3; }
+
+.onboarding-hero {
+  flex: 0;
+  text-align: center;
+  padding: 24px 0;
+}
+
+.hero-icon {
+  width: 80px;
+  height: 80px;
+  background: var(--info-bg);
+  border-radius: 22px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 20px;
+}
+
+.hero-icon i { font-size: 40px; color: var(--info); }
+
+.hero-icon.success { background: var(--success-bg); }
+.hero-icon.success i { color: var(--success); }
+
+.onboarding-hero h1 {
+  font-size: 22px;
+  font-weight: 700;
+  margin-bottom: 8px;
+  letter-spacing: -0.3px;
+}
+
+.onboarding-hero p {
+  font-size: 14px;
+  color: var(--text-2);
+  line-height: 1.5;
+}
+
+.feature-list {
+  padding: 0 4px 24px;
+}
+
+.feature-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 0;
+}
+
+.feature-row i {
+  font-size: 18px;
+  color: var(--info);
+  width: 24px;
+}
+
+.feature-row span {
+  font-size: 14px;
+  color: var(--text-2);
+}
+
+.btn-primary {
+  width: 100%;
+  padding: 14px;
+  background: var(--text);
+  color: var(--surface);
+  border: none;
+  border-radius: var(--radius);
+  font-family: inherit;
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: transform 0.1s;
+  margin-bottom: 12px;
+}
+
+.btn-primary:active { transform: scale(0.98); }
+
+.btn-primary.info {
+  background: var(--info);
+  color: white;
+}
+
+[data-theme="dark"] .btn-primary.info { color: var(--info-bg); }
+
+.btn-skip {
+  width: 100%;
+  padding: 12px;
+  background: none;
+  border: none;
+  color: var(--text-2);
+  font-family: inherit;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.onboarding-footer {
+  padding: 16px 0 calc(16px + env(safe-area-inset-bottom));
+  margin-top: auto;
+}
+
+/* iOS permission preview */
+.ios-permission {
+  margin: 8px 0 24px;
+  padding: 16px;
+  background: var(--surface-2);
+  border-radius: 14px;
+}
+
+.ios-permission .title {
+  font-size: 13px;
+  font-weight: 600;
+  text-align: center;
+  margin-bottom: 6px;
+}
+
+.ios-permission .desc {
+  font-size: 11px;
+  color: var(--text-2);
+  text-align: center;
+  margin-bottom: 14px;
+  line-height: 1.4;
+}
+
+.permission-btn {
+  width: 100%;
+  padding: 10px;
+  background: var(--surface);
+  border: 0.5px solid var(--border);
+  border-radius: 8px;
+  font-family: inherit;
+  font-size: 13px;
+  color: var(--info);
+  font-weight: 500;
+  margin-bottom: 6px;
+  cursor: pointer;
+}
+
+.permission-btn.ghost {
+  color: var(--text-2);
+  font-weight: 400;
+}
+
+/* Place input cards (onboarding step 3) */
+.place-card {
+  margin-bottom: 10px;
+  padding: 14px;
+  border: 0.5px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+  cursor: pointer;
+}
+
+.place-card.set {
+  background: var(--info-bg);
+  border-color: var(--info);
+}
+
+.place-card .head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+
+.place-card.set .head { color: var(--info); }
+.place-card .head i { font-size: 16px; }
+.place-card .head span { font-size: 13px; font-weight: 600; }
+.place-card .head i.check { margin-left: auto; }
+
+.place-card .addr {
+  font-size: 12px;
+  color: var(--text-3);
+}
+
+.place-card.set .addr { color: var(--info); }
+
+.add-place {
+  margin-bottom: 10px;
+  padding: 14px;
+  border: 1px dashed var(--border-strong);
+  border-radius: var(--radius);
+  text-align: center;
+  cursor: pointer;
+  font-size: 13px;
+  color: var(--text-2);
+}
+
+.add-place i { font-size: 14px; margin-right: 6px; vertical-align: -2px; }
+
+/* Theme toggle (floating) */
+.theme-toggle {
+  position: fixed;
+  bottom: 20px;
+  right: 20px;
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  background: var(--text);
+  color: var(--surface);
+  border: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+  z-index: 100;
+  font-size: 20px;
+  transition: transform 0.2s;
+}
+
+.theme-toggle:active { transform: scale(0.92); }
+
+@media (max-width: 480px) {
+  .theme-toggle {
+    bottom: calc(16px + env(safe-area-inset-bottom));
+  }
+}
+
+/* Sub headers in detail screens */
+.sub-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 20px 14px;
+}
+
+.sub-head .info-block {
+  flex: 1;
+}
+
+.sub-head .title {
+  font-size: 18px;
+  font-weight: 600;
+}
+
+.sub-head .meta {
+  font-size: 12px;
+  color: var(--text-2);
+  margin-top: 2px;
+}
+
+/* Misc */
+.scroll-pad { height: 12px; }
+
+.dest-text {
+  font-size: 12px;
+  color: var(--text-2);
+}
+
+.bus-num {
+  font-size: 18px;
+  font-weight: 700;
+}
+
+.fare-bar {
+  margin: 0 20px 14px;
+  padding: 14px;
+  background: var(--surface);
+  border: 0.5px solid var(--border);
+  border-radius: var(--radius);
+}
+
+.fare-bar .row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 6px 0;
+}
+
+.fare-bar .row + .row { border-top: 0.5px solid var(--border); margin-top: 6px; padding-top: 12px; }
+.fare-bar .key { font-size: 13px; color: var(--text-2); }
+.fare-bar .val { font-size: 13px; font-weight: 500; }
+.fare-bar .row.total .key, .fare-bar .row.total .val { font-weight: 600; }
+.fare-bar .val.green { color: var(--success); font-weight: 600; }
+
+</style>
+</head>
+<body>
+
+<div class="device-frame">
+  <div class="notch"></div>
+
+  <div class="status-bar">
+    <span id="time-display">9:41</span>
+    <span class="right">
+      <i class="ti ti-signal-4g"></i>
+      <i class="ti ti-wifi"></i>
+      <i class="ti ti-battery-3"></i>
+    </span>
+  </div>
+
+  <div class="screen-container">
+
+    <!-- ============ ONBOARDING STEP 1 ============ -->
+    <div class="screen" id="onboarding-1">
+      <div class="screen-content">
+        <div class="onboarding-screen">
+          <div class="progress-dots">
+            <div class="pdot active"></div>
+            <div class="pdot"></div>
+            <div class="pdot"></div>
+          </div>
+          <div class="onboarding-hero">
+            <div class="hero-icon"><i class="ti ti-bus"></i></div>
+            <h1>Welcome to TransitSG</h1>
+            <p>Real-time buses, MRT, fares<br>& disruptions — all in one place.</p>
+          </div>
+          <div class="feature-list">
+            <div class="feature-row"><i class="ti ti-clock"></i><span>Live arrival times</span></div>
+            <div class="feature-row"><i class="ti ti-route"></i><span>Smart journey planner</span></div>
+            <div class="feature-row"><i class="ti ti-calculator"></i><span>Bus & MRT fare calculator</span></div>
+            <div class="feature-row"><i class="ti ti-bell"></i><span>Service disruption alerts</span></div>
+          </div>
+          <div class="onboarding-footer">
+            <button class="btn-primary" onclick="goTo('onboarding-2')">Get started</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ============ ONBOARDING STEP 2 ============ -->
+    <div class="screen" id="onboarding-2">
+      <div class="screen-content">
+        <div class="onboarding-screen">
+          <div class="progress-dots">
+            <div class="pdot done"></div>
+            <div class="pdot active"></div>
+            <div class="pdot"></div>
+          </div>
+          <div class="onboarding-hero">
+            <div class="hero-icon success"><i class="ti ti-map-pin"></i></div>
+            <h1>Find what's nearby</h1>
+            <p>Allow location access to see<br>stops & stations around you.</p>
+          </div>
+          <div class="ios-permission">
+            <div class="title">Allow "TransitSG" to use your location?</div>
+            <div class="desc">We use your location to show nearby bus stops and MRT stations.</div>
+            <button class="permission-btn" onclick="goTo('onboarding-3')">Allow once</button>
+            <button class="permission-btn" onclick="goTo('onboarding-3')">While using app</button>
+            <button class="permission-btn ghost" onclick="goTo('onboarding-3')">Don't allow</button>
+          </div>
+          <div class="onboarding-footer">
+            <button class="btn-skip" onclick="goTo('onboarding-3')">Skip for now</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ============ ONBOARDING STEP 3 ============ -->
+    <div class="screen" id="onboarding-3">
+      <div class="screen-content">
+        <div class="onboarding-screen">
+          <div class="progress-dots">
+            <div class="pdot done"></div>
+            <div class="pdot done"></div>
+            <div class="pdot active"></div>
+          </div>
+          <div class="onboarding-hero">
+            <h1>Save your places</h1>
+            <p>Quick access to your daily commute.</p>
+          </div>
+          <div>
+            <div class="place-card set">
+              <div class="head">
+                <i class="ti ti-home"></i>
+                <span>Home</span>
+                <i class="ti ti-circle-check-filled check"></i>
+              </div>
+              <div class="addr">Blk 416 Bedok North Rd</div>
+            </div>
+            <div class="place-card">
+              <div class="head">
+                <i class="ti ti-briefcase"></i>
+                <span>Work</span>
+              </div>
+              <div class="addr">Search address or station</div>
+            </div>
+            <div class="add-place">
+              <i class="ti ti-plus"></i>Add another place
+            </div>
+            <div class="list-row" style="border-radius: var(--radius); border: 0.5px solid var(--border); margin-top: 16px; padding: 14px;">
+              <i class="ti ti-bell lead"></i>
+              <span class="label">Alert me about disruptions</span>
+              <div class="toggle on" onclick="this.classList.toggle('on')"></div>
+            </div>
+          </div>
+          <div class="onboarding-footer">
+            <button class="btn-primary info" onclick="goTo('home')">Start using TransitSG</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ============ HOME ============ -->
+    <div class="screen active" id="home">
+      <div class="screen-content">
+        <div class="app-header" style="display: flex; justify-content: space-between; align-items: flex-start;">
+          <div>
+            <p class="greet">Good morning, Aisyah</p>
+            <h1>Where to today?</h1>
+          </div>
+          <button class="icon-btn avatar" onclick="goTo('profile')" aria-label="Profile">A</button>
+        </div>
+
+        <div class="search-bar" onclick="goTo('plan')">
+          <i class="ti ti-search"></i>
+          <span>Search station, bus, address</span>
+        </div>
+
+        <div class="shortcuts">
+          <button class="shortcut home" onclick="goTo('plan')">
+            <i class="ti ti-home"></i>
+            <div class="label">Home</div>
+            <div class="time">22 min</div>
+          </button>
+          <button class="shortcut work" onclick="goTo('plan')">
+            <i class="ti ti-briefcase"></i>
+            <div class="label">Work</div>
+            <div class="time">35 min</div>
+          </button>
+        </div>
+
+        <div class="section-head">
+          <h2>Near you</h2>
+          <span class="meta">Bedok Nth Rd</span>
+        </div>
+
+        <div class="card" onclick="goTo('bus-stop')">
+          <div class="card-row">
+            <div class="card-title">
+              <i class="ti ti-bus" style="font-size:16px;color:var(--text-2)"></i>
+              Blk 416
+            </div>
+            <span class="distance">80m</span>
+          </div>
+          <div class="arrivals">
+            <div class="arrival urgent">
+              <div class="num">2</div>
+              <div class="min">2 min</div>
+            </div>
+            <div class="arrival">
+              <div class="num">5</div>
+              <div class="min">9 min</div>
+            </div>
+            <div class="arrival">
+              <div class="num">14</div>
+              <div class="min">3 min</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="card" onclick="goTo('station')">
+          <div class="card-row" style="margin-bottom: 6px;">
+            <div class="card-title">
+              <span class="line-badge ew">EW5</span>
+              Bedok MRT
+            </div>
+            <span class="distance">340m</span>
+          </div>
+          <div class="status-inline success">
+            <i class="ti ti-circle-check"></i>
+            All lines running normally
+          </div>
+        </div>
+
+        <div class="card" onclick="goTo('bus-stop')">
+          <div class="card-row">
+            <div class="card-title">
+              <i class="ti ti-bus" style="font-size:16px;color:var(--text-2)"></i>
+              Bedok Town Park
+            </div>
+            <span class="distance">220m</span>
+          </div>
+          <div class="arrivals">
+            <div class="arrival urgent">
+              <div class="num">15</div>
+              <div class="min">4 min</div>
+            </div>
+            <div class="arrival">
+              <div class="num">22</div>
+              <div class="min">11 min</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="scroll-pad"></div>
+      </div>
+
+      <div class="tab-bar">
+        <button class="tab active" onclick="goTo('home')">
+          <i class="ti ti-home"></i>
+          <div class="tab-label">Home</div>
+        </button>
+        <button class="tab" onclick="goTo('plan')">
+          <i class="ti ti-route"></i>
+          <div class="tab-label">Plan</div>
+        </button>
+        <button class="tab" onclick="goTo('fares')">
+          <i class="ti ti-calculator"></i>
+          <div class="tab-label">Fares</div>
+        </button>
+        <button class="tab" onclick="goTo('alerts')">
+          <span class="badge-dot"></span>
+          <i class="ti ti-bell"></i>
+          <div class="tab-label">Alerts</div>
+        </button>
+      </div>
+    </div>
+
+    <!-- ============ JOURNEY PLAN ============ -->
+    <div class="screen" id="plan">
+      <div class="screen-content">
+        <div class="app-header with-back">
+          <button class="icon-btn" onclick="goTo('home')"><i class="ti ti-arrow-left"></i></button>
+          <h1 style="font-size: 20px;">Plan journey</h1>
+        </div>
+
+        <div class="from-to">
+          <div class="from-to-row">
+            <span class="dot"></span>
+            <span>Bedok MRT</span>
+          </div>
+          <div class="from-to-row">
+            <span class="dot dest"></span>
+            <span>Marina Bay Sands</span>
+          </div>
+        </div>
+
+        <div class="pills">
+          <button class="pill active">Fastest</button>
+          <button class="pill">Cheapest</button>
+          <button class="pill">Less walk</button>
+        </div>
+
+        <div class="card highlight" onclick="goTo('tracking')">
+          <div class="card-row">
+            <div style="display: flex; align-items: center; gap: 8px;">
+              <span style="font-size: 17px; font-weight: 600;">28 min</span>
+              <span class="badge-best">Best</span>
+            </div>
+            <span style="font-size: 14px; color: var(--info); font-weight: 600;">$1.89</span>
+          </div>
+          <div class="route-mini">
+            <i class="ti ti-walk"></i>
+            <span class="seg line ew">EW</span>
+            <i class="ti ti-arrow-narrow-right" style="color: var(--text-3);"></i>
+            <span class="seg line ce">CE</span>
+            <i class="ti ti-walk"></i>
+          </div>
+          <div class="status-inline success">
+            <i class="ti ti-users"></i>
+            Low crowd · Leaves 2 min
+          </div>
+        </div>
+
+        <div class="card" onclick="goTo('tracking')">
+          <div class="card-row">
+            <span style="font-size: 17px; font-weight: 600;">34 min</span>
+            <span style="font-size: 14px; color: var(--text-2);">$1.69</span>
+          </div>
+          <div class="route-mini">
+            <i class="ti ti-bus"></i>
+            <span class="seg">12</span>
+            <i class="ti ti-arrow-narrow-right" style="color: var(--text-3);"></i>
+            <span class="seg line ew">EW</span>
+          </div>
+          <div class="status-inline warning">
+            <i class="ti ti-users"></i>
+            Standing only · Leaves 5 min
+          </div>
+        </div>
+
+        <div class="card" onclick="goTo('tracking')">
+          <div class="card-row">
+            <span style="font-size: 17px; font-weight: 600;">41 min</span>
+            <span style="font-size: 14px; color: var(--text-2);">$1.45</span>
+          </div>
+          <div class="route-mini">
+            <i class="ti ti-bus"></i>
+            <span class="seg">36</span>
+          </div>
+        </div>
+
+        <div class="scroll-pad"></div>
+      </div>
+
+      <div class="tab-bar">
+        <button class="tab" onclick="goTo('home')">
+          <i class="ti ti-home"></i>
+          <div class="tab-label">Home</div>
+        </button>
+        <button class="tab active" onclick="goTo('plan')">
+          <i class="ti ti-route"></i>
+          <div class="tab-label">Plan</div>
+        </button>
+        <button class="tab" onclick="goTo('fares')">
+          <i class="ti ti-calculator"></i>
+          <div class="tab-label">Fares</div>
+        </button>
+        <button class="tab" onclick="goTo('alerts')">
+          <span class="badge-dot"></span>
+          <i class="ti ti-bell"></i>
+          <div class="tab-label">Alerts</div>
+        </button>
+      </div>
+    </div>
+
+    <!-- ============ FARES ============ -->
+    <div class="screen" id="fares">
+      <div class="screen-content">
+        <div class="app-header">
+          <h1>Fare calculator</h1>
+          <p style="font-size: 13px; color: var(--text-2); margin-top: 2px;">Estimate your trip cost</p>
+        </div>
+
+        <div class="toggle-group">
+          <button class="toggle-btn active" data-mode="mrt">
+            <i class="ti ti-train"></i>MRT/LRT
+          </button>
+          <button class="toggle-btn" data-mode="bus">
+            <i class="ti ti-bus"></i>Bus
+          </button>
+        </div>
+
+        <div class="from-to">
+          <div class="from-to-row">
+            <span style="font-size: 12px; color: var(--text-3); width: 32px;">From</span>
+            <span class="line-badge ew">EW5</span>
+            <span style="font-size: 14px;">Bedok</span>
+          </div>
+          <div class="from-to-row">
+            <span style="font-size: 12px; color: var(--text-3); width: 32px;">To</span>
+            <span class="line-badge ce">CE1</span>
+            <span style="font-size: 14px; font-weight: 600;">Bayfront</span>
+          </div>
+        </div>
+
+        <p class="section-label" style="margin-bottom: 8px;">Pay with</p>
+        <div class="pills">
+          <button class="pill active" data-card="adult">Adult</button>
+          <button class="pill" data-card="senior">Senior</button>
+          <button class="pill" data-card="student">Student</button>
+          <button class="pill" data-card="child">Child</button>
+        </div>
+
+        <div class="fare-result">
+          <div class="label">Estimated fare</div>
+          <div class="row">
+            <span class="amount" id="fare-amount">$1.89</span>
+            <span class="meta">~24 min · 13 km</span>
+          </div>
+        </div>
+
+        <div class="fare-bar">
+          <div class="row">
+            <span class="key">Distance fare</span>
+            <span class="val">$1.89</span>
+          </div>
+          <div class="row">
+            <span class="key">Early-bird discount</span>
+            <span class="val green">−$0.00</span>
+          </div>
+          <div class="row total">
+            <span class="key">Total</span>
+            <span class="val">$1.89</span>
+          </div>
+        </div>
+
+        <div class="tip">
+          <i class="ti ti-bulb"></i>
+          <p>Tap in before <strong>7:45 am</strong> to save $0.50 with the early-bird discount.</p>
+        </div>
+
+        <div class="scroll-pad"></div>
+      </div>
+
+      <div class="tab-bar">
+        <button class="tab" onclick="goTo('home')">
+          <i class="ti ti-home"></i>
+          <div class="tab-label">Home</div>
+        </button>
+        <button class="tab" onclick="goTo('plan')">
+          <i class="ti ti-route"></i>
+          <div class="tab-label">Plan</div>
+        </button>
+        <button class="tab active" onclick="goTo('fares')">
+          <i class="ti ti-calculator"></i>
+          <div class="tab-label">Fares</div>
+        </button>
+        <button class="tab" onclick="goTo('alerts')">
+          <span class="badge-dot"></span>
+          <i class="ti ti-bell"></i>
+          <div class="tab-label">Alerts</div>
+        </button>
+      </div>
+    </div>
+
+    <!-- ============ ALERTS ============ -->
+    <div class="screen" id="alerts">
+      <div class="screen-content">
+        <div class="app-header" style="display: flex; justify-content: space-between; align-items: center;">
+          <h1>Alerts</h1>
+          <button class="icon-btn" aria-label="Filter"><i class="ti ti-adjustments-horizontal"></i></button>
+        </div>
+
+        <div class="pills">
+          <button class="pill active">All</button>
+          <button class="pill">MRT</button>
+          <button class="pill">Bus</button>
+          <button class="pill">For you</button>
+        </div>
+
+        <div class="alert danger">
+          <div class="alert-head">
+            <i class="ti ti-alert-circle"></i>
+            <span class="tag">Major delay</span>
+            <span class="time">Now</span>
+          </div>
+          <h3>East-West Line</h3>
+          <p>Delays of up to 15 min between Bugis and Tanah Merah. Service recovery in progress.</p>
+        </div>
+
+        <div class="alert warning">
+          <div class="alert-head">
+            <i class="ti ti-clock"></i>
+            <span class="tag">Schedule change</span>
+            <span class="time">12 min</span>
+          </div>
+          <h3>Bus 14 detour</h3>
+          <p>Diverted via Marine Parade Rd until 11pm tonight.</p>
+        </div>
+
+        <div class="alert info">
+          <div class="alert-head">
+            <i class="ti ti-info-circle"></i>
+            <span class="tag">For you</span>
+            <span class="time">2h ago</span>
+          </div>
+          <h3>Free off-peak ride</h3>
+          <p>Tap in before 7:30am tomorrow on the NEL for a free trip.</p>
+        </div>
+
+        <div class="alert success">
+          <div class="alert-head">
+            <i class="ti ti-circle-check"></i>
+            <span class="tag">Resolved</span>
+            <span class="time">3h ago</span>
+          </div>
+          <p style="margin: 0;">Circle Line lift at Bayfront restored.</p>
+        </div>
+
+        <div class="scroll-pad"></div>
+      </div>
+
+      <div class="tab-bar">
+        <button class="tab" onclick="goTo('home')">
+          <i class="ti ti-home"></i>
+          <div class="tab-label">Home</div>
+        </button>
+        <button class="tab" onclick="goTo('plan')">
+          <i class="ti ti-route"></i>
+          <div class="tab-label">Plan</div>
+        </button>
+        <button class="tab" onclick="goTo('fares')">
+          <i class="ti ti-calculator"></i>
+          <div class="tab-label">Fares</div>
+        </button>
+        <button class="tab active" onclick="goTo('alerts')">
+          <i class="ti ti-bell"></i>
+          <div class="tab-label">Alerts</div>
+        </button>
+      </div>
+    </div>
+
+    <!-- ============ BUS STOP DETAILS ============ -->
+    <div class="screen" id="bus-stop">
+      <div class="screen-content">
+        <div class="sub-head">
+          <button class="icon-btn" onclick="goTo('home')"><i class="ti ti-arrow-left"></i></button>
+          <div class="info-block">
+            <div class="title">Blk 416</div>
+            <div class="meta">Stop 84009 · Bedok Nth Rd</div>
+          </div>
+          <button class="icon-btn" aria-label="Favourite"><i class="ti ti-star"></i></button>
+        </div>
+
+        <div class="map-area">
+          <div class="road-h"></div>
+          <div class="bus-marker" style="top: calc(50% - 14px); left: 35%;">
+            <i class="ti ti-bus-stop"></i>
+          </div>
+          <div class="label-tag">You are here</div>
+        </div>
+
+        <div class="pills">
+          <button class="pill active">All buses</button>
+          <button class="pill">Saved</button>
+        </div>
+
+        <div class="card" onclick="goTo('tracking')">
+          <div class="card-row">
+            <div style="display: flex; align-items: center; gap: 10px;">
+              <span class="bus-num">2</span>
+              <span class="dest-text">→ Changi Village</span>
+            </div>
+            <i class="ti ti-star-filled" style="font-size: 16px; color: var(--amber);"></i>
+          </div>
+          <div class="arrivals">
+            <div class="arrival urgent">
+              <div class="num">2 min</div>
+              <div class="min">Seats · SD</div>
+            </div>
+            <div class="arrival">
+              <div class="num">14 min</div>
+              <div class="min">Standing · DD</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="card" onclick="goTo('tracking')">
+          <div class="card-row">
+            <div style="display: flex; align-items: center; gap: 10px;">
+              <span class="bus-num">5</span>
+              <span class="dest-text">→ Marina Centre</span>
+            </div>
+            <i class="ti ti-star" style="font-size: 16px; color: var(--text-3);"></i>
+          </div>
+          <div class="arrivals">
+            <div class="arrival warning">
+              <div class="num">9 min</div>
+              <div class="min">Standing · SD</div>
+            </div>
+            <div class="arrival">
+              <div class="num">22 min</div>
+              <div class="min">Seats · SD</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="card" onclick="goTo('tracking')">
+          <div class="card-row">
+            <div style="display: flex; align-items: center; gap: 10px;">
+              <span class="bus-num">14</span>
+              <span class="dest-text">→ Bedok Int.</span>
+            </div>
+            <i class="ti ti-star" style="font-size: 16px; color: var(--text-3);"></i>
+          </div>
+          <div class="arrivals">
+            <div class="arrival urgent">
+              <div class="num">3 min</div>
+              <div class="min">Seats · DD</div>
+            </div>
+            <div class="arrival">
+              <div class="num">11 min</div>
+              <div class="min">Limited · DD</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="card" onclick="goTo('tracking')">
+          <div class="card-row">
+            <div style="display: flex; align-items: center; gap: 10px;">
+              <span class="bus-num">36</span>
+              <span class="dest-text">→ Tomlinson Rd</span>
+            </div>
+            <i class="ti ti-star" style="font-size: 16px; color: var(--text-3);"></i>
+          </div>
+          <div class="arrivals">
+            <div class="arrival">
+              <div class="num">7 min</div>
+              <div class="min">Seats · SD</div>
+            </div>
+            <div class="arrival">
+              <div class="num">19 min</div>
+              <div class="min">Seats · SD</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="scroll-pad"></div>
+      </div>
+
+      <div class="tab-bar">
+        <button class="tab active" onclick="goTo('home')">
+          <i class="ti ti-home"></i>
+          <div class="tab-label">Home</div>
+        </button>
+        <button class="tab" onclick="goTo('plan')">
+          <i class="ti ti-route"></i>
+          <div class="tab-label">Plan</div>
+        </button>
+        <button class="tab" onclick="goTo('fares')">
+          <i class="ti ti-calculator"></i>
+          <div class="tab-label">Fares</div>
+        </button>
+        <button class="tab" onclick="goTo('alerts')">
+          <span class="badge-dot"></span>
+          <i class="ti ti-bell"></i>
+          <div class="tab-label">Alerts</div>
+        </button>
+      </div>
+    </div>
+
+    <!-- ============ MRT STATION DETAILS ============ -->
+    <div class="screen" id="station">
+      <div class="screen-content">
+        <div class="sub-head">
+          <button class="icon-btn" onclick="goTo('home')"><i class="ti ti-arrow-left"></i></button>
+          <div class="info-block" style="display: flex; align-items: center; gap: 10px;">
+            <span class="line-badge ew" style="font-size: 12px; padding: 4px 8px;">EW5</span>
+            <div class="title">Bedok</div>
+          </div>
+          <button class="icon-btn" aria-label="Favourite"><i class="ti ti-star-filled" style="color: var(--amber);"></i></button>
+        </div>
+
+        <div class="line-status">
+          <span class="dot-small"></span>
+          <span class="text">East-West Line · Normal service</span>
+        </div>
+
+        <div class="line-map">
+          <h3>Next 4 trains · Westbound</h3>
+          <div class="stations">
+            <div class="station-node">
+              <div class="node"></div>
+              <div class="name">Bedok</div>
+              <div class="code">EW5</div>
+            </div>
+            <div class="station-node regular">
+              <div class="node"></div>
+              <div class="name">Kembangan</div>
+              <div class="code">EW6</div>
+            </div>
+            <div class="station-node regular">
+              <div class="node"></div>
+              <div class="name">Eunos</div>
+              <div class="code">EW7</div>
+            </div>
+            <div class="station-node interchange">
+              <div class="node"></div>
+              <div class="name">Paya Lebar</div>
+              <div class="code">EW8 · CC9</div>
+            </div>
+          </div>
+
+          <div class="train-arrivals">
+            <div class="row">
+              <span class="key">Next train</span>
+              <span class="val">2 min</span>
+            </div>
+            <div class="row">
+              <span class="key">Following</span>
+              <span class="val">5 min · 9 min</span>
+            </div>
+          </div>
+        </div>
+
+        <p class="section-label">Exits</p>
+        <div class="exits-grid">
+          <div class="exit-card">
+            <div class="head">
+              <span class="letter">A</span>
+              <span class="name">Bedok Mall</span>
+            </div>
+            <div class="meta">Lift · Escalator</div>
+          </div>
+          <div class="exit-card">
+            <div class="head">
+              <span class="letter">B</span>
+              <span class="name">Bus Int.</span>
+            </div>
+            <div class="meta">Lift · Stairs</div>
+          </div>
+          <div class="exit-card">
+            <div class="head">
+              <span class="letter">C</span>
+              <span class="name">Heartbeat</span>
+            </div>
+            <div class="meta">Escalator</div>
+          </div>
+          <div class="exit-card">
+            <div class="head">
+              <span class="letter">D</span>
+              <span class="name">Bedok Pl.</span>
+            </div>
+            <div class="meta">Stairs only</div>
+          </div>
+        </div>
+
+        <p class="section-label">Amenities</p>
+        <div class="list-group">
+          <button class="list-row">
+            <i class="ti ti-toilet-paper lead"></i>
+            <span class="label">Toilets</span>
+            <span class="value">Concourse · Exit B</span>
+          </button>
+          <button class="list-row">
+            <i class="ti ti-wheelchair lead"></i>
+            <span class="label">Accessibility</span>
+            <span class="value">Step-free</span>
+          </button>
+          <button class="list-row">
+            <i class="ti ti-bike lead"></i>
+            <span class="label">Bike parking</span>
+            <span class="value">Exit C</span>
+          </button>
+        </div>
+
+        <div class="scroll-pad"></div>
+      </div>
+
+      <div class="tab-bar">
+        <button class="tab active" onclick="goTo('home')">
+          <i class="ti ti-home"></i>
+          <div class="tab-label">Home</div>
+        </button>
+        <button class="tab" onclick="goTo('plan')">
+          <i class="ti ti-route"></i>
+          <div class="tab-label">Plan</div>
+        </button>
+        <button class="tab" onclick="goTo('fares')">
+          <i class="ti ti-calculator"></i>
+          <div class="tab-label">Fares</div>
+        </button>
+        <button class="tab" onclick="goTo('alerts')">
+          <span class="badge-dot"></span>
+          <i class="ti ti-bell"></i>
+          <div class="tab-label">Alerts</div>
+        </button>
+      </div>
+    </div>
+
+    <!-- ============ LIVE TRACKING ============ -->
+    <div class="screen" id="tracking">
+      <div class="screen-content">
+        <div class="sub-head">
+          <button class="icon-btn" onclick="history.back ? goBack() : goTo('home')"><i class="ti ti-arrow-left"></i></button>
+          <div class="info-block">
+            <div class="title">Bus 14</div>
+            <div class="meta">→ Bedok Interchange</div>
+          </div>
+          <button class="icon-btn" aria-label="Notify"><i class="ti ti-bell"></i></button>
+        </div>
+
+        <div class="map-area" style="height: 200px;">
+          <div class="road-h"></div>
+          <div class="road-v"></div>
+          <div class="stop-marker" style="top: 50%; left: 12%; transform: translateY(-50%);"></div>
+          <div class="stop-marker" style="top: 50%; left: 58%; transform: translateY(-50%);"></div>
+          <div class="pulse" style="top: calc(50% - 14px); left: 33%;"></div>
+          <div class="bus-marker" style="top: calc(50% - 14px); left: 33%;">
+            <i class="ti ti-bus"></i>
+          </div>
+        </div>
+
+        <div class="eta-card">
+          <div class="label">Arriving at your stop in</div>
+          <div class="row">
+            <span class="num" id="eta-num">3</span>
+            <span class="unit">min</span>
+            <span class="meta">2 stops away</span>
+          </div>
+        </div>
+
+        <div class="detail-card">
+          <div class="detail-row">
+            <span class="key">Bus type</span>
+            <span class="val">Double-deck</span>
+          </div>
+          <div class="detail-row">
+            <span class="key">Operator</span>
+            <span class="val">SBS Transit</span>
+          </div>
+          <div class="detail-row">
+            <span class="key">Crowd</span>
+            <div class="crowd">
+              <span class="bar on"></span>
+              <span class="bar on"></span>
+              <span class="bar"></span>
+              <span class="text">Seats</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="timeline">
+          <h3>Next stops</h3>
+          <div class="timeline-stop">
+            <span class="marker"></span>
+            <span class="name">Bedok Sth Ave 3</span>
+            <span class="eta">3 min</span>
+          </div>
+          <div class="timeline-stop future">
+            <span class="marker"></span>
+            <span class="name">Tanah Merah</span>
+            <span class="eta">7 min</span>
+          </div>
+          <div class="timeline-stop future">
+            <span class="marker"></span>
+            <span class="name">Simei</span>
+            <span class="eta">12 min</span>
+          </div>
+          <div class="timeline-stop future">
+            <span class="marker"></span>
+            <span class="name">Tampines</span>
+            <span class="eta">18 min</span>
+          </div>
+        </div>
+
+        <div class="scroll-pad"></div>
+      </div>
+
+      <div class="tab-bar">
+        <button class="tab active" onclick="goTo('home')">
+          <i class="ti ti-home"></i>
+          <div class="tab-label">Home</div>
+        </button>
+        <button class="tab" onclick="goTo('plan')">
+          <i class="ti ti-route"></i>
+          <div class="tab-label">Plan</div>
+        </button>
+        <button class="tab" onclick="goTo('fares')">
+          <i class="ti ti-calculator"></i>
+          <div class="tab-label">Fares</div>
+        </button>
+        <button class="tab" onclick="goTo('alerts')">
+          <span class="badge-dot"></span>
+          <i class="ti ti-bell"></i>
+          <div class="tab-label">Alerts</div>
+        </button>
+      </div>
+    </div>
+
+    <!-- ============ PROFILE ============ -->
+    <div class="screen" id="profile">
+      <div class="screen-content">
+        <div class="sub-head">
+          <button class="icon-btn" onclick="goTo('home')"><i class="ti ti-arrow-left"></i></button>
+          <div class="info-block" style="text-align: center;">
+            <div class="title">Profile</div>
+          </div>
+          <span style="width: 36px;"></span>
+        </div>
+
+        <div class="user-card">
+          <div class="avatar">A</div>
+          <div class="info">
+            <div class="name">Aisyah</div>
+            <div class="meta">Adult · Joined Mar 2024</div>
+          </div>
+          <i class="ti ti-chevron-right" style="color: var(--text-3); font-size: 18px;"></i>
+        </div>
+
+        <p class="section-label">Saved places</p>
+        <div class="list-group">
+          <button class="list-row">
+            <i class="ti ti-home lead info"></i>
+            <span class="label">Home</span>
+            <span class="value">Bedok Nth</span>
+            <i class="ti ti-chevron-right chev"></i>
+          </button>
+          <button class="list-row">
+            <i class="ti ti-briefcase lead purple"></i>
+            <span class="label">Work</span>
+            <span class="value">Raffles Place</span>
+            <i class="ti ti-chevron-right chev"></i>
+          </button>
+          <button class="list-row">
+            <i class="ti ti-star lead amber"></i>
+            <span class="label">Favourite stops & lines</span>
+            <span class="value">5</span>
+            <i class="ti ti-chevron-right chev"></i>
+          </button>
+        </div>
+
+        <p class="section-label">Preferences</p>
+        <div class="list-group">
+          <button class="list-row" onclick="toggleTheme()">
+            <i class="ti ti-moon lead"></i>
+            <span class="label">Dark mode</span>
+            <span class="value" id="theme-label">Auto</span>
+            <i class="ti ti-chevron-right chev"></i>
+          </button>
+          <div class="list-row" style="cursor: default;">
+            <i class="ti ti-bell lead"></i>
+            <span class="label">Notifications</span>
+            <div class="toggle on" onclick="this.classList.toggle('on')"></div>
+          </div>
+          <button class="list-row">
+            <i class="ti ti-language lead"></i>
+            <span class="label">Language</span>
+            <span class="value">English</span>
+            <i class="ti ti-chevron-right chev"></i>
+          </button>
+        </div>
+
+        <p class="section-label">About</p>
+        <div class="list-group">
+          <button class="list-row" onclick="goTo('onboarding-1')">
+            <i class="ti ti-rocket lead"></i>
+            <span class="label">Replay onboarding</span>
+            <i class="ti ti-chevron-right chev"></i>
+          </button>
+          <button class="list-row">
+            <i class="ti ti-help-circle lead"></i>
+            <span class="label">Help & support</span>
+            <i class="ti ti-chevron-right chev"></i>
+          </button>
+          <div class="list-row" style="cursor: default;">
+            <i class="ti ti-info-circle lead"></i>
+            <span class="label">App version</span>
+            <span class="value">2.4.1</span>
+          </div>
+        </div>
+
+        <div class="scroll-pad"></div>
+      </div>
+
+      <div class="tab-bar">
+        <button class="tab active" onclick="goTo('home')">
+          <i class="ti ti-home"></i>
+          <div class="tab-label">Home</div>
+        </button>
+        <button class="tab" onclick="goTo('plan')">
+          <i class="ti ti-route"></i>
+          <div class="tab-label">Plan</div>
+        </button>
+        <button class="tab" onclick="goTo('fares')">
+          <i class="ti ti-calculator"></i>
+          <div class="tab-label">Fares</div>
+        </button>
+        <button class="tab" onclick="goTo('alerts')">
+          <span class="badge-dot"></span>
+          <i class="ti ti-bell"></i>
+          <div class="tab-label">Alerts</div>
+        </button>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<button class="theme-toggle" onclick="toggleTheme()" aria-label="Toggle dark mode">
+  <i class="ti ti-moon" id="theme-icon"></i>
+</button>
+
+<script>
+const history = [];
+
+function goTo(id) {
+  const current = document.querySelector('.screen.active');
+  if (current && current.id !== id) {
+    history.push(current.id);
+  }
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  const target = document.getElementById(id);
+  if (target) {
+    target.classList.add('active');
+    target.querySelector('.screen-content').scrollTop = 0;
+  }
+}
+
+function goBack() {
+  if (history.length > 0) {
+    const prev = history.pop();
+    document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+    document.getElementById(prev).classList.add('active');
+  } else {
+    goTo('home');
+  }
+}
+
+// Theme toggle
+function toggleTheme() {
+  const root = document.documentElement;
+  const current = root.getAttribute('data-theme');
+  const next = current === 'dark' ? 'light' : 'dark';
+  root.setAttribute('data-theme', next);
+  document.getElementById('theme-icon').className = next === 'dark' ? 'ti ti-sun' : 'ti ti-moon';
+  const label = document.getElementById('theme-label');
+  if (label) label.textContent = next === 'dark' ? 'On' : 'Off';
+  try { localStorage.setItem('theme', next); } catch(e) {}
+}
+
+// Restore theme
+try {
+  const saved = localStorage.getItem('theme');
+  if (saved) {
+    document.documentElement.setAttribute('data-theme', saved);
+    document.getElementById('theme-icon').className = saved === 'dark' ? 'ti ti-sun' : 'ti ti-moon';
+    const label = document.getElementById('theme-label');
+    if (label) label.textContent = saved === 'dark' ? 'On' : 'Off';
+  }
+} catch(e) {}
+
+// Live clock
+function updateClock() {
+  const now = new Date();
+  const h = now.getHours();
+  const m = String(now.getMinutes()).padStart(2, '0');
+  const display = `${h % 12 || 12}:${m}`;
+  const el = document.getElementById('time-display');
+  if (el) el.textContent = display;
+}
+updateClock();
+setInterval(updateClock, 30000);
+
+// Live ETA countdown
+let etaSeconds = 180;
+function tickEta() {
+  etaSeconds = Math.max(60, etaSeconds - 1);
+  const min = Math.ceil(etaSeconds / 60);
+  const el = document.getElementById('eta-num');
+  if (el) el.textContent = min;
+  if (etaSeconds <= 60) etaSeconds = 180; // loop
+}
+setInterval(tickEta, 1000);
+
+// Filter pills toggle (visual only)
+document.querySelectorAll('.pills').forEach(group => {
+  group.addEventListener('click', e => {
+    if (e.target.classList.contains('pill')) {
+      group.querySelectorAll('.pill').forEach(p => p.classList.remove('active'));
+      e.target.classList.add('active');
+    }
+  });
+});
+
+// Fare card type recalculation (visual)
+const adultFare = 1.89;
+const fares = { adult: adultFare, senior: 0.81, student: 0.55, child: 0.55 };
+document.querySelectorAll('.toggle-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.toggle-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+  });
+});
+
+document.addEventListener('click', e => {
+  if (e.target.matches('[data-card]')) {
+    const card = e.target.dataset.card;
+    const f = fares[card];
+    const el = document.getElementById('fare-amount');
+    if (el && f != null) el.textContent = `$${f.toFixed(2)}`;
+  }
+});
+
+// Swipe back gesture (touch)
+let touchStartX = 0;
+document.addEventListener('touchstart', e => {
+  if (e.touches[0].clientX < 30) {
+    touchStartX = e.touches[0].clientX;
+  } else {
+    touchStartX = 0;
+  }
+}, { passive: true });
+
+document.addEventListener('touchend', e => {
+  if (touchStartX > 0 && e.changedTouches[0].clientX - touchStartX > 80) {
+    goBack();
+  }
+  touchStartX = 0;
+}, { passive: true });
+</script>
+
+</body>
+</html>
