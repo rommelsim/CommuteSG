@@ -1,7 +1,16 @@
 {
   "permissions": {
     "allow": [
-      "Bash(xcodebuild -project Commute.xcodeproj -scheme Commute -configuration Release -destination 'generic/platform=iOS' -quiet build)"
+      "Bash(xcodebuild -project Commute.xcodeproj -scheme Commute -configuration Release -destination 'generic/platform=iOS' -quiet build)",
+      "Bash(rm -rf Commute/.git)",
+      "Bash(git rm *)",
+      "Bash(git add *)",
+      "Bash(git reset *)",
+      "Bash(git commit -m ' *)",
+      "Bash(git push *)",
+      "Bash(command -v gh)",
+      "Bash(gh auth *)",
+      "Bash(ssh -T git@github.com -o StrictHostKeyChecking=no -o BatchMode=yes)"
     ]
   }
 }
