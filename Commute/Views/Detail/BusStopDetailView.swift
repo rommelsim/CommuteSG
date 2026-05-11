@@ -8,7 +8,6 @@ struct BusStopDetailView: View {
 
     @Environment(AppState.self) private var appState
     @State private var arrivals: [BusArrival]
-    @State private var dataMode: HomeViewModel.DataMode = .demo
     @State private var lastRefresh: Date? = nil
     @State private var filter: BusFilter = .all
     @State private var mapPosition: MapCameraPosition = .automatic
@@ -31,9 +30,6 @@ struct BusStopDetailView: View {
         }
     }
 
-    /// Build a map region tight enough to show the stop and every supplied
-    /// bus coordinate, with a comfortable padding factor so markers aren't
-    /// flush with the edge of the map.
     private static func fitRegion(
         stop: CLLocationCoordinate2D,
         buses: [CLLocationCoordinate2D]
@@ -56,94 +52,102 @@ struct BusStopDetailView: View {
     }
 
     var body: some View {
-        VStack(spacing: 0) {
-            DetailHeader(
-                center: {
-                    DetailHeaderTitle(title: stop.name, meta: "Stop \(stop.id) · \(stop.road)")
-                },
-                trailing: {
-                    IconCircleButton(
-                        symbol: isFavorite ? "star.fill" : "star",
-                        foreground: isFavorite ? Color.appAmber : Color.appText
-                    ) {
-                        appState.toggleFavoriteBusStop(stop.id)
-                    }
-                }
-            )
-            // GeometryReader wraps the ScrollView so we can force its
-            // content to fill the visible card height when content is
-            // short — eliminates the dead space at the bottom of the card
-            // when "No buses arriving" is the only thing in the list.
-            GeometryReader { geo in
-                ScrollView {
-                    VStack(alignment: .leading, spacing: 14) {
-                        miniMap
-                        HStack {
-                            FilterPills(
-                                options: BusFilter.allCases,
-                                label: { $0.label },
-                                selection: $filter
-                            )
-                            Spacer(minLength: 0)
-                            LiveStatusPill(minutesAgo: minutesSinceRefresh)
-                                .onTapGesture {
-                                    Task { await refresh(force: true) }
-                                }
-                                .padding(.trailing, Spacing.screen)
-                        }
-                        busList
-                    }
-                    .padding(.top, Spacing.s24)
-                    .padding(.bottom, 24)
-                    .frame(minHeight: geo.size.height, alignment: .top)
-                }
-                .scrollIndicators(.hidden)
-                .scrollContentBackground(.hidden)
-                .refreshable { await refresh(force: true) }
+        ScrollView {
+            VStack(alignment: .leading, spacing: 14) {
+                topBar
+                    .padding(.horizontal, 20)
+                    .padding(.top, 8)
+                walkPill
+                    .padding(.horizontal, 20)
+                miniMap
+                    .padding(.horizontal, 8)
+                filterRow
+                    .padding(.horizontal, 20)
+                busList
+                    .padding(.horizontal, 20)
             }
+            .padding(.bottom, 24)
         }
-        .scrollContentBackground(.hidden)
+        .scrollIndicators(.hidden)
+        .background(Color.cfPageBackground.ignoresSafeArea())
         .navigationBarBackButtonHidden(true)
         .toolbar(.hidden, for: .navigationBar)
         .task { await refresh(force: false) }
+        .refreshable { await refresh(force: true) }
     }
 
-    private var isFavorite: Bool {
-        appState.favoriteBusStopCodes.contains(stop.id)
-    }
+    // MARK: - Top bar (back + centered title + favorite)
 
-    // MARK: - Refresh
+    @Environment(\.dismiss) private var dismiss
 
-    private func refresh(force: Bool) async {
-        do {
-            let live = try await lta.busArrivals(at: stop.id, force: force)
-            if !live.isEmpty {
-                arrivals = live
-                dataMode = .live
-                lastRefresh = Date()
-            } else {
-                arrivals = initialArrivals
-                dataMode = .demo
+    private var topBar: some View {
+        HStack(alignment: .top) {
+            iconCircleButton(symbol: "chevron.left") { dismiss() }
+            Spacer()
+            VStack(spacing: 2) {
+                HStack(spacing: 6) {
+                    BusStopIcon(size: 14, color: Color.black.opacity(0.65), strokeWidth: 2.2)
+                    Text(stop.name)
+                        .font(.system(size: 19, weight: .bold))
+                        .foregroundStyle(Color.cfTextPrimary)
+                        .lineLimit(1)
+                }
+                Text("Stop \(stop.id) · \(stop.road)")
+                    .font(.system(size: 11, weight: .medium))
+                    .foregroundStyle(Color.cfTextTertiary)
+                    .lineLimit(1)
             }
-        } catch {
-            arrivals = initialArrivals
-            dataMode = .demo
+            .padding(.top, 4)
+            Spacer()
+            iconCircleButton(symbol: isFavorite ? "star.fill" : "star",
+                             foreground: isFavorite ? Color.appAmber : Color.cfTextPrimary) {
+                appState.toggleFavoriteBusStop(stop.id)
+            }
         }
     }
 
-    private var filteredArrivals: [BusArrival] {
-        switch filter {
-        case .all: arrivals
-        case .saved: arrivals.filter { appState.favoriteLineCodes.contains($0.serviceNo) }
+    private func iconCircleButton(symbol: String, foreground: Color = .cfTextPrimary, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Image(systemName: symbol)
+                .font(.system(size: 14, weight: .semibold))
+                .foregroundStyle(foreground)
+                .frame(width: 40, height: 40)
+                .background(Color.white.opacity(0.85), in: Circle())
+                .shadow(color: .black.opacity(0.04), radius: 3, y: 2)
+        }
+        .buttonStyle(.plain)
+    }
+
+    // MARK: - Walk pill
+
+    private var walkPill: some View {
+        HStack {
+            Spacer()
+            HStack(spacing: 6) {
+                Image(systemName: "figure.walk")
+                    .font(.system(size: 11, weight: .semibold))
+                    .foregroundStyle(Color.black.opacity(0.50))
+                Text("\(walkMin) min walk · \(distanceText)")
+                    .font(.system(size: 11, weight: .bold))
+                    .monospacedDigit()
+                    .foregroundStyle(Color.black.opacity(0.65))
+            }
+            .padding(.horizontal, 12)
+            .padding(.vertical, 6)
+            .glassSurface(cornerRadius: 999, fill: Color.white.opacity(0.70))
+            Spacer()
         }
     }
 
-    private var minutesSinceRefresh: Int {
-        guard let lastRefresh else { return 0 }
-        return max(0, Int(Date().timeIntervalSince(lastRefresh) / 60))
+    private var walkMin: Int { StopsAdapters.walkMinutes(forMeters: stop.distanceMeters ?? 0) }
+
+    private var distanceText: String {
+        let m = stop.distanceMeters ?? 0
+        if m < 1000 { return "\(m) m" }
+        return String(format: "%.1f km", Double(m) / 1000)
     }
 
-    // MARK: - Map (interactive, with bus markers + recenter)
+    // MARK: - Mini map
 
     private var miniMap: some View {
         ZStack(alignment: .topTrailing) {
@@ -151,12 +155,8 @@ struct BusStopDetailView: View {
                 Map(position: $mapPosition) {
                     Annotation(stop.name, coordinate: coord, anchor: .bottom) {
                         ZStack {
-                            Circle()
-                                .fill(Color.appInfo)
-                                .frame(width: 28, height: 28)
-                            Image(systemName: "bus.fill")
-                                .font(.system(size: 12, weight: .bold))
-                                .foregroundStyle(.white)
+                            Circle().fill(Color.cfNowFill).frame(width: 28, height: 28)
+                            BusStopIcon(size: 14, color: .white, strokeWidth: 2.3)
                         }
                         .shadow(color: .black.opacity(0.25), radius: 3, y: 1)
                     }
@@ -167,8 +167,6 @@ struct BusStopDetailView: View {
                     }
                 }
                 .mapStyle(.standard(pointsOfInterest: .excludingAll))
-                // Re-fit the camera whenever the stop coord lands or buses
-                // shift so far-away buses stay on screen.
                 .onChange(of: arrivalsCoordinatesKey, initial: true) { _, _ in refitMap(target: coord) }
 
                 recenterButton(target: coord)
@@ -176,22 +174,17 @@ struct BusStopDetailView: View {
                 Color.clear
             }
         }
-        .frame(height: 180)
-        // Edge-to-edge inside the sheet, framed only by an 18pt rounded
-        // corner + 0.5px hairline glass stroke per redesign spec §2.
+        .frame(height: 150)
         .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
         .overlay(
             RoundedRectangle(cornerRadius: 18, style: .continuous)
                 .stroke(.white.opacity(0.7), lineWidth: 0.5)
         )
-        .padding(.horizontal, Spacing.s8)
     }
 
-    /// Stable key for `.onChange` — concatenates each arrival's bus
-    /// coordinate so the modifier fires whenever any bus moves.
     private var arrivalsCoordinatesKey: String {
         arrivals
-            .map { a -> String in
+            .map { a in
                 let lat = a.nextArrivalLatitude ?? 0
                 let lng = a.nextArrivalLongitude ?? 0
                 return "\(a.serviceNo):\(lat),\(lng)"
@@ -202,22 +195,21 @@ struct BusStopDetailView: View {
     private func refitMap(target: CLLocationCoordinate2D) {
         let busCoords = busesOnMap.map(\.coordinate)
         let region = Self.fitRegion(stop: target, buses: busCoords)
-        withAnimation(.smooth(duration: 0.4)) {
-            mapPosition = .region(region)
-        }
+        withAnimation(.smooth(duration: 0.4)) { mapPosition = .region(region) }
     }
 
     private func recenterButton(target: CLLocationCoordinate2D) -> some View {
-        IconCircleButton(symbol: "scope", foreground: Color.appInfo) {
-            refitMap(target: target)
+        Button { refitMap(target: target) } label: {
+            Image(systemName: "scope")
+                .font(.system(size: 14, weight: .semibold))
+                .foregroundStyle(Color.cfTextPrimary)
+                .frame(width: 32, height: 32)
+                .background(Color.white.opacity(0.9), in: Circle())
         }
-        .accessibilityLabel("Recenter map on \(stop.name) and all buses")
+        .buttonStyle(.plain)
         .padding(10)
     }
 
-    /// Buses with a real-time coordinate from LTA — drawn as markers on the map.
-    /// `id` is keyed on `serviceNo` (which is unique per stop) so the markers
-    /// reuse identity across polls instead of blinking on each refresh.
     private var busesOnMap: [BusOnMap] {
         arrivals.compactMap { arrival in
             guard let coord = arrival.nextArrivalCoordinate else { return nil }
@@ -228,51 +220,116 @@ struct BusStopDetailView: View {
     private func busMarker(serviceNo: String) -> some View {
         Text(serviceNo)
             .font(.system(size: 10, weight: .bold))
-            .foregroundStyle(.white)
+            .monospacedDigit()
+            .tracking(-0.1)
+            .foregroundStyle(Color(hex: 0x1F2937))
             .padding(.horizontal, 6)
-            .padding(.vertical, 3)
-            .background(Color.appWarningStrong)
-            .clipShape(Capsule())
-            .overlay(Capsule().stroke(.white, lineWidth: 1))
-            .shadow(color: .black.opacity(0.25), radius: 2, y: 1)
+            .frame(height: 19)
+            .background(.white, in: Capsule())
+            .overlay(Capsule().strokeBorder(Color.black.opacity(0.10), lineWidth: 0.5))
+            .shadow(color: .black.opacity(0.18), radius: 2, y: 1)
     }
 
-    // MARK: - List
+    // MARK: - Filter row
+
+    private var filterRow: some View {
+        HStack {
+            HStack(spacing: 2) {
+                ForEach(BusFilter.allCases, id: \.self) { f in
+                    Button { withAnimation(.snappy) { filter = f } } label: {
+                        Text(f.label)
+                            .font(.system(size: 12, weight: .bold))
+                            .foregroundStyle(filter == f ? Color.cfTextPrimary : Color.black.opacity(0.50))
+                            .padding(.horizontal, 14)
+                            .padding(.vertical, 6)
+                            .background {
+                                if filter == f {
+                                    Capsule().fill(Color.white)
+                                        .shadow(color: .black.opacity(0.08), radius: 2, y: 1)
+                                }
+                            }
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+            .padding(2)
+            .background(Color.black.opacity(0.04), in: Capsule())
+
+            Spacer()
+
+            HStack(spacing: 4) {
+                LiveDot(color: .cfLiveDot, size: 6)
+                Text("Live · \(minutesAgoText)")
+                    .font(.system(size: 10, weight: .semibold))
+                    .foregroundStyle(Color.cfTextPrimary)
+            }
+            .padding(.horizontal, 10)
+            .padding(.vertical, 4)
+            .glassSurface(cornerRadius: 999, fill: Color.white.opacity(0.80))
+        }
+    }
+
+    private var minutesAgoText: String {
+        guard let last = lastRefresh else { return "now" }
+        return "\(max(0, Int(Date().timeIntervalSince(last) / 60)))m"
+    }
+
+    // MARK: - Bus list
 
     private var busList: some View {
-        VStack(spacing: Spacing.cardGap) {
-            ForEach(filteredArrivals) { arrival in
-                NavigationLink(value: HomeRoute.tracking(arrival, busStopCode: stop.id)) {
-                    BusServiceRow(
-                        arrival: arrival,
-                        isFavorite: appState.favoriteLineCodes.contains(arrival.serviceNo),
-                        onToggleFavorite: {
-                            appState.toggleFavoriteLine(arrival.serviceNo)
-                        }
-                    )
-                }
-                .buttonStyle(CardButtonStyle())
-            }
+        VStack(spacing: 0) {
             if filteredArrivals.isEmpty {
-                // Wrap the empty state in spacers + a generous min-height so
-                // it visually centers in the card's remaining area instead
-                // of clinging to the top with a gulf of dead space below.
-                VStack(spacing: 0) {
-                    Spacer(minLength: 24)
-                    EmptyStateView(
-                        symbol: filter == .saved ? "star" : "bus.fill",
-                        title: filter == .saved ? "No saved buses yet" : "No buses arriving",
-                        subtitle: filter == .saved
-                            ? "Tap the star next to any bus to save it for quick access."
-                            : "Pull to refresh, or check back in a moment.",
-                        style: .neutral
-                    )
-                    Spacer(minLength: 24)
+                EmptyStateView(
+                    symbol: filter == .saved ? "star" : "bus.fill",
+                    title: filter == .saved ? "No saved buses yet" : "No buses arriving",
+                    subtitle: filter == .saved
+                        ? "Tap the star next to any bus to save it for quick access."
+                        : "Pull to refresh, or check back in a moment.",
+                    style: .neutral
+                )
+                .padding(20)
+            } else {
+                ForEach(Array(filteredArrivals.enumerated()), id: \.offset) { idx, arrival in
+                    NavigationLink(value: HomeRoute.tracking(arrival, busStopCode: stop.id)) {
+                        BusServiceRow(
+                            arrival: arrival,
+                            isFavorite: appState.favoriteLineCodes.contains(arrival.serviceNo),
+                            onToggleFavorite: { appState.toggleFavoriteLine(arrival.serviceNo) }
+                        )
+                    }
+                    .buttonStyle(.plain)
+                    if idx < filteredArrivals.count - 1 {
+                        Divider().background(Color.black.opacity(0.04))
+                    }
                 }
-                .frame(minHeight: 360)
             }
         }
-        .padding(.horizontal, Spacing.screen)
+        .glassSurface(cornerRadius: 18)
+    }
+
+    // MARK: - Refresh / state
+
+    private var isFavorite: Bool { appState.favoriteBusStopCodes.contains(stop.id) }
+
+    private var filteredArrivals: [BusArrival] {
+        switch filter {
+        case .all: arrivals
+        case .saved: arrivals.filter { appState.favoriteLineCodes.contains($0.serviceNo) }
+        }
+    }
+
+    private func refresh(force: Bool) async {
+        do {
+            let live = try await lta.busArrivals(at: stop.id, force: force)
+            if !live.isEmpty {
+                arrivals = live
+                lastRefresh = Date()
+            } else {
+                arrivals = initialArrivals
+            }
+        } catch {
+            arrivals = initialArrivals
+        }
     }
 }
 
@@ -284,33 +341,86 @@ private struct BusOnMap: Identifiable {
     let coordinate: CLLocationCoordinate2D
 }
 
-// MARK: - Service row
-// CM design: each service is a CMCard wrapping a BusArrivalRow with a
-// trailing favorite star. Crowd / bus-type chips are intentionally omitted —
-// they're surfaced on the live tracking screen reached by tapping the row.
-
+// MARK: - Bus service row (Stop Detail)
+// Two-line layout per spec §"Bus row structure":
+// Top: chip → destination (left) · ETA + reliability indicator (right)
+// Bottom (indented): "via {route}" + crowd if packed (left) · "then {next} min" + save (right)
 private struct BusServiceRow: View {
     let arrival: BusArrival
     let isFavorite: Bool
     let onToggleFavorite: () -> Void
 
+    private var destinationName: String {
+        StopsAdapters.destinationLabel(for: arrival).ifEmpty(arrival.destinationCode ?? "—")
+    }
+
+    private var nextEtaValue: String {
+        arrival.nextArrivalMinutes.map(String.init) ?? "—"
+    }
+
+    private var followingText: String {
+        guard let f = arrival.followingArrivalMinutes else { return "" }
+        return "then \(f) min"
+    }
+
+    private var isUrgent: Bool { (arrival.nextArrivalMinutes ?? .max) <= 1 }
+    private var isUnreliable: Bool { arrival.nextArrivalIsScheduled }
+
     var body: some View {
-        CMCard {
+        VStack(alignment: .leading, spacing: 8) {
+            // Top row: chip → destination ........ ETA
             HStack(alignment: .center, spacing: 10) {
-                BusArrivalRow(
-                    busNumber: arrival.serviceNo,
-                    destination: arrival.destinationCode ?? arrival.destination,
-                    nextMinutes: arrival.nextArrivalMinutes,
-                    followingMinutes: arrival.followingArrivalMinutes
-                )
-                Button(action: onToggleFavorite) {
+                ServiceChip(service: arrival.serviceNo, size: .md)
+                Image(systemName: "arrow.right")
+                    .font(.system(size: 11, weight: .bold))
+                    .foregroundStyle(Color.cfTextMuted)
+                Text(destinationName)
+                    .font(.system(size: 15, weight: .bold))
+                    .foregroundStyle(Color.cfTextPrimary)
+                    .lineLimit(1)
+                Spacer(minLength: 8)
+                VStack(alignment: .trailing, spacing: 2) {
+                    ETAView(urgent: isUrgent, value: nextEtaValue, size: .md)
+                    if isUnreliable {
+                        Text("± 3")
+                            .font(.system(size: 9, weight: .semibold))
+                            .monospacedDigit()
+                            .foregroundStyle(Color.cfTextTertiary)
+                    }
+                }
+            }
+
+            // Bottom row: via + crowd ........ then + save
+            HStack(spacing: 8) {
+                if arrival.nextArrivalCrowd == .limited {
+                    CrowdPeople(level: .high, size: 10)
+                }
+                Spacer(minLength: 8)
+                if !followingText.isEmpty {
+                    Text(followingText)
+                        .font(.system(size: 10, weight: .medium))
+                        .monospacedDigit()
+                        .foregroundStyle(Color.cfTextTertiary)
+                }
+                Button {
+                    onToggleFavorite()
+                } label: {
                     Image(systemName: isFavorite ? "star.fill" : "star")
-                        .font(.system(size: 16, weight: .semibold))
-                        .foregroundStyle(isFavorite ? Color.appAmber : Color.appText3)
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundStyle(isFavorite ? Color.cfTextPrimary : Color.cfTextDisabled)
                 }
                 .buttonStyle(.plain)
-                .sensoryFeedback(.selection, trigger: isFavorite)
             }
+            .padding(.leading, 60)  // align past the md chip
         }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 12)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .contentShape(Rectangle())
     }
+}
+
+// Tiny string convenience used in this file only.
+private extension String {
+    func ifEmpty(_ replacement: String) -> String { isEmpty ? replacement : self }
 }

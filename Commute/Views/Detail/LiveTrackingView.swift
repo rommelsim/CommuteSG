@@ -1,26 +1,21 @@
 import SwiftUI
-import MapKit
 import CoreLocation
 
 struct LiveTrackingView: View {
     let initialArrival: BusArrival
     let busStopCode: String?
 
+    @Environment(\.dismiss) private var dismiss
+    @Environment(AppState.self) private var appState
+
     @State private var currentArrival: BusArrival
-    @State private var pulseAnimating = false
     @State private var demoSecondsLeft: Int = 180
     @State private var lastPolled: Date = .distantPast
     @State private var isLive: Bool = false
     @State private var nowTick: Date = Date()
     @State private var routeVM: LiveTrackingViewModel
-    @State private var stopCoordinate: CLLocationCoordinate2D?
-    @State private var timelineExpanded = false
-    @State private var mapPosition: MapCameraPosition = .automatic
+    @State private var stopName: String?
     @State private var trackingOnLockScreen = false
-
-    /// How many stops to show in the collapsed timeline before the
-    /// "Show all stops" button appears.
-    private let collapsedTimelineLimit = 6
 
     private let oneSecond = Timer.publish(every: 1, on: .main, in: .common).autoconnect()
     private let pollInterval: TimeInterval = 30
@@ -36,54 +31,30 @@ struct LiveTrackingView: View {
             busStopCode: busStopCode,
             destinationCode: arrival.destinationCode
         ))
-
-        // Pre-fit the camera so the bus is visible on first render. The stop
-        // coord arrives async from BusStopsRepository, at which point an
-        // .onChange handler refits to span both. Using a generous default
-        // span (~1.7 km) makes it likely the stop is already in view too.
-        if let busCoord = arrival.nextArrivalCoordinate {
-            self._mapPosition = State(initialValue: .region(
-                MKCoordinateRegion(
-                    center: busCoord,
-                    span: MKCoordinateSpan(latitudeDelta: 0.015, longitudeDelta: 0.015)
-                )
-            ))
-        }
     }
 
     var body: some View {
-        VStack(spacing: 0) {
-            DetailHeader(
-                center: {
-                    DetailHeaderTitle(
-                        title: "Bus \(currentArrival.serviceNo)",
-                        meta: currentArrival.destination.isEmpty ? "Live tracking" : currentArrival.destination
-                    )
-                },
-                trailing: {
-                    LiveBadge(mode: isLive ? .live : .demo)
-                }
-            )
-            ScrollView {
-                VStack(alignment: .leading, spacing: 14) {
-                    map
-                    etaCard
-                    liveActivityCard
-                    detailsCard
-                    timeline
-                }
-                .padding(.bottom, 24)
+        ScrollView {
+            VStack(alignment: .leading, spacing: 14) {
+                topBar
+                heroCard
+                routeTimelineCard
+                onThisBusCard
+                liveActivityCard
             }
-            .scrollIndicators(.hidden)
-            .refreshable {
-                await poll(force: true)
-                await routeVM.refreshETAs()
-            }
+            .padding(.horizontal, 20)
+            .padding(.vertical, 14)
+            .padding(.bottom, 24)
         }
-        .background(Color.appSurface)
+        .scrollIndicators(.hidden)
+        .background(Color.cfPageBackground.ignoresSafeArea())
         .navigationBarBackButtonHidden(true)
         .toolbar(.hidden, for: .navigationBar)
         .toolbar(.hidden, for: .tabBar)
+        .refreshable {
+            await poll(force: true)
+            await routeVM.refreshETAs()
+        }
         .onReceive(oneSecond) { tick in
             nowTick = tick
             if !isLive {
@@ -97,193 +68,450 @@ struct LiveTrackingView: View {
             }
         }
         .task {
-            await loadStopCoordinate()
-            // Defensive refit: even if `.onChange(initial: true)` fired before
-            // stopCoordinate landed, this guarantees the camera converges on
-            // a sensible region as soon as we have any anchor.
-            refitMap()
+            await loadStopName()
             await poll(force: false)
-            refitMap()
             await routeVM.loadInitial()
         }
-        .onAppear { pulseAnimating = true }
     }
 
-    private func loadStopCoordinate() async {
-        guard let busStopCode else { return }
-        let stops = await stopsRepo.stops
-        stopCoordinate = stops.first(where: { $0.id == busStopCode })?.coordinate
-    }
+    // MARK: - Top bar
 
-    @MainActor
-    private func poll(force: Bool) async {
-        guard let code = busStopCode else { return }
-        guard force || Date().timeIntervalSince(lastPolled) > pollInterval - 1 else { return }
-        do {
-            let live = try await lta.busArrivals(at: code, force: force)
-            if let updated = live.first(where: { $0.serviceNo == currentArrival.serviceNo }) {
-                currentArrival = updated
-                isLive = true
+    private var topBar: some View {
+        HStack {
+            iconCircleButton(symbol: "chevron.left") { dismiss() }
+            Spacer()
+            Text("Bus details")
+                .font(.system(size: 12, weight: .bold))
+                .foregroundStyle(Color.cfTextSecondary)
+            Spacer()
+            iconCircleButton(
+                symbol: isFavorite ? "star.fill" : "star",
+                foreground: isFavorite ? Color.cfTextPrimary : Color.cfTextTertiary
+            ) {
+                appState.toggleFavoriteLine(currentArrival.serviceNo)
             }
-            lastPolled = Date()
-        } catch {
-            // Keep last known data; the badge stays on previous state.
         }
     }
 
-    // MARK: - Map
+    private var isFavorite: Bool { appState.favoriteLineCodes.contains(currentArrival.serviceNo) }
 
-    @ViewBuilder
-    private var map: some View {
-        Group {
-            if currentMapRegion != nil {
-                Map(position: $mapPosition) {
-                    if let stopCoordinate {
-                        Marker("Your stop", systemImage: "mappin.circle.fill", coordinate: stopCoordinate)
-                            .tint(Color.appText)
+    private func iconCircleButton(symbol: String, foreground: Color = .cfTextPrimary, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Image(systemName: symbol)
+                .font(.system(size: 14, weight: .semibold))
+                .foregroundStyle(foreground)
+                .frame(width: 40, height: 40)
+                .background(Color.white.opacity(0.85), in: Circle())
+                .shadow(color: .black.opacity(0.04), radius: 3, y: 2)
+        }
+        .buttonStyle(.plain)
+    }
+
+    // MARK: - Hero (dark)
+
+    private var heroCard: some View {
+        ZStack {
+            RoundedRectangle(cornerRadius: 20, style: .continuous)
+                .fill(LinearGradient(
+                    colors: [Color(hex: 0x0F1729), Color(hex: 0x1E293B)],
+                    startPoint: .topLeading, endPoint: .bottomTrailing
+                ))
+            Circle()
+                .fill(Color.white.opacity(0.04))
+                .frame(width: 96, height: 96)
+                .offset(x: 130, y: -64)
+            Circle()
+                .fill(Color.white.opacity(0.03))
+                .frame(width: 80, height: 80)
+                .offset(x: -110, y: 80)
+
+            VStack(alignment: .leading, spacing: 0) {
+                HStack(spacing: 6) {
+                    LiveDot(color: Color(red: 0.46, green: 0.86, blue: 0.50), size: 6)
+                    Text(arrivingLabel.uppercased())
+                        .font(.system(size: 10, weight: .bold))
+                        .tracking(1.2)
+                        .foregroundStyle(Color.cfOnDarkMuted)
+                }
+                .padding(.bottom, 12)
+
+                HStack(spacing: 12) {
+                    ServiceChip(service: currentArrival.serviceNo, size: .lg, onDark: true)
+                    VStack(alignment: .leading, spacing: 0) {
+                        Text("TO")
+                            .font(.system(size: 11, weight: .bold))
+                            .tracking(0.8)
+                            .foregroundStyle(Color.cfOnDarkLabel)
+                        Text(destinationName)
+                            .font(.system(size: 20, weight: .bold))
+                            .foregroundStyle(Color.cfOnDarkPrimary)
+                            .lineLimit(1)
                     }
-                    if let busCoord = currentArrival.nextArrivalCoordinate {
-                        Annotation("Bus \(currentArrival.serviceNo)", coordinate: busCoord) {
-                            ZStack {
-                                Circle()
-                                    .stroke(Color.appInfo, lineWidth: 2)
-                                    .frame(width: 28, height: 28)
-                                    .scaleEffect(pulseAnimating ? 2.5 : 1)
-                                    .opacity(pulseAnimating ? 0 : 0.6)
-                                    .animation(.easeOut(duration: 2).repeatForever(autoreverses: false),
-                                               value: pulseAnimating)
-                                Circle()
-                                    .fill(Color.appInfoBg)
-                                    .overlay(Circle().stroke(Color.appInfo, lineWidth: 2))
-                                    .frame(width: 28, height: 28)
-                                Image(systemName: "bus.fill")
-                                    .font(.system(size: 13, weight: .semibold))
-                                    .foregroundStyle(Color.appInfo)
-                            }
+                    Spacer(minLength: 0)
+                }
+                .padding(.bottom, 12)
+
+                Divider().background(Color.white.opacity(0.10))
+
+                HStack(alignment: .bottom) {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("ARRIVES IN")
+                            .font(.system(size: 10, weight: .bold))
+                            .tracking(0.8)
+                            .foregroundStyle(Color.cfOnDarkLabel)
+                        bigEta
+                        if currentArrival.nextArrivalIsScheduled {
+                            Text("± 3 min · scheduled estimate")
+                                .font(.system(size: 10, weight: .semibold))
+                                .foregroundStyle(Color.cfOnDarkLabel)
+                                .padding(.top, 2)
+                        }
+                    }
+                    Spacer()
+                    if let f = currentArrival.followingArrivalMinutes {
+                        VStack(alignment: .trailing, spacing: 4) {
+                            Text("THEN")
+                                .font(.system(size: 10, weight: .bold))
+                                .tracking(0.8)
+                                .foregroundStyle(Color.cfOnDarkLabel)
+                            Text("\(f) min")
+                                .font(.system(size: 18, weight: .bold))
+                                .monospacedDigit()
+                                .foregroundStyle(Color.cfOnDarkPrimary)
                         }
                     }
                 }
-                .mapStyle(.standard(pointsOfInterest: .excludingAll))
-            } else {
-                ZStack {
-                    Color.appSurface2
-                    Image(systemName: "map.fill")
-                        .font(.system(size: 28))
-                        .foregroundStyle(Color.appText3)
-                }
+                .padding(.top, 12)
             }
+            .padding(20)
         }
-        .frame(height: 200)
-        .overlay(alignment: .top) {
-            if currentArrival.nextArrivalCoordinate == nil {
-                busLocationUnavailableBanner
-            }
-        }
-        .clipShape(RoundedRectangle(cornerRadius: Radius.card, style: .continuous))
-        .padding(.horizontal, Spacing.screen)
-        // Re-fit the camera whenever stop coord lands or the bus moves so
-        // the bus marker never drifts off-screen between polls. `initial:
-        // true` makes these fire once on first render too, so even when the
-        // values are already populated at init the camera converges on a
-        // proper stop+bus fit instead of staying on the seed region.
-        .onChange(of: stopCoordinate?.latitude, initial: true) { _, _ in refitMap() }
-        .onChange(of: currentArrival.nextArrivalLatitude, initial: true) { _, _ in refitMap() }
-        .onChange(of: currentArrival.nextArrivalLongitude, initial: true) { _, _ in refitMap() }
+        .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
+        .shadow(color: Color(hex: 0x0F1729).opacity(0.40), radius: 14, y: 12)
     }
 
-    /// Shown when LTA's BusArrival API doesn't include a GPS fix for this
-    /// service (typical: bus hasn't started its run, GPS dropout in a
-    /// tunnel, or the operator's tracker is offline). Without this, the
-    /// map silently shows only the stop and the user thinks the app is broken.
-    private var busLocationUnavailableBanner: some View {
-        HStack(spacing: 6) {
-            Image(systemName: "antenna.radiowaves.left.and.right.slash")
-                .font(.system(size: 11, weight: .semibold))
-            Text("Live bus position unavailable")
-                .font(.appCaptionStrong)
-        }
-        .foregroundStyle(Color.appWarningStrong)
-        .padding(.vertical, 6)
-        .padding(.horizontal, 12)
-        .background(Color.appWarningBg)
-        .clipShape(Capsule())
-        .overlay(Capsule().stroke(Color.appWarning.opacity(0.4), lineWidth: 0.5))
-        .padding(.top, 10)
+    private var arrivingLabel: String {
+        let mins = displayMinutes()
+        return mins == "Now" ? "Arriving now" : "Arriving"
     }
 
-    private func refitMap() {
-        guard let region = currentMapRegion else { return }
-        withAnimation(.smooth(duration: 0.4)) {
-            mapPosition = .region(region)
-        }
+    private var destinationName: String {
+        let resolved = StopsAdapters.destinationLabel(for: currentArrival)
+        if !resolved.isEmpty { return resolved }
+        return currentArrival.destinationCode ?? currentArrival.destination
     }
 
-    private var currentMapRegion: MKCoordinateRegion? {
-        let busCoord = currentArrival.nextArrivalCoordinate
-        switch (stopCoordinate, busCoord) {
-        case let (s?, b?):
-            let center = CLLocationCoordinate2D(
-                latitude: (s.latitude + b.latitude) / 2,
-                longitude: (s.longitude + b.longitude) / 2
-            )
-            let span = MKCoordinateSpan(
-                latitudeDelta: max(abs(s.latitude - b.latitude) * 1.6, 0.005),
-                longitudeDelta: max(abs(s.longitude - b.longitude) * 1.6, 0.005)
-            )
-            return MKCoordinateRegion(center: center, span: span)
-        case let (s?, nil):
-            return MKCoordinateRegion(
-                center: s,
-                span: MKCoordinateSpan(latitudeDelta: 0.008, longitudeDelta: 0.008)
-            )
-        case let (nil, b?):
-            return MKCoordinateRegion(
-                center: b,
-                span: MKCoordinateSpan(latitudeDelta: 0.008, longitudeDelta: 0.008)
-            )
-        default:
-            return nil
-        }
-    }
-
-    // MARK: - ETA card
-
-    private var etaCard: some View {
-        let mins = displayMinutes(at: nowTick)
-        return VStack(alignment: .leading, spacing: 4) {
-            Text("Arriving at your stop in")
-                .font(.appCaption)
-                .foregroundStyle(Color.appInfo)
-                .opacity(0.85)
-            HStack(alignment: .lastTextBaseline) {
+    @ViewBuilder
+    private var bigEta: some View {
+        let mins = displayMinutes()
+        if mins == "Now" {
+            NowTag()
+        } else {
+            HStack(alignment: .firstTextBaseline, spacing: 4) {
                 Text(mins)
-                    .font(.appHero)
-                    .tracking(-1)
-                    .foregroundStyle(Color.appInfoStrong)
+                    .font(.system(size: 44, weight: .bold))
+                    .monospacedDigit()
+                    .foregroundStyle(Color.cfOnDarkPrimary)
                     .contentTransition(.numericText())
                     .animation(.snappy, value: mins)
-                if mins != "Now" {
-                    Text("min")
-                        .font(.appSubTitle)
-                        .foregroundStyle(Color.appInfo)
-                }
+                Text("min")
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundStyle(Color.cfOnDarkMuted)
+            }
+        }
+    }
+
+    private func displayMinutes() -> String {
+        if isLive, let arrAt = currentArrival.nextArrivalAt {
+            let secs = max(0, Int(arrAt.timeIntervalSince(nowTick)))
+            if secs <= 120 { return "Now" }
+            return "\(Int(ceil(Double(secs) / 60.0)))"
+        }
+        if demoSecondsLeft <= 120 { return "Now" }
+        return "\(Int(ceil(Double(demoSecondsLeft) / 60.0)))"
+    }
+
+    // MARK: - Route timeline
+
+    private var routeTimelineCard: some View {
+        VStack(spacing: 0) {
+            HStack {
+                Text("BUS ROUTE")
+                    .font(.system(size: 10, weight: .bold))
+                    .tracking(1.2)
+                    .foregroundStyle(Color.cfTextTertiary)
                 Spacer()
-                if currentArrival.nextArrivalCrowd != .unknown {
-                    Text(currentArrival.nextArrivalCrowd.label)
-                        .font(.appCaption)
-                        .foregroundStyle(Color.appInfo)
-                        .opacity(0.85)
+                Text(timelineSummary)
+                    .font(.system(size: 10, weight: .semibold))
+                    .foregroundStyle(Color.cfTextTertiary)
+            }
+            .padding(.horizontal, 16)
+            .padding(.vertical, 12)
+
+            Divider().background(Color.black.opacity(0.05))
+
+            timelineBody
+                .padding(.vertical, 8)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .glassSurface(cornerRadius: 18)
+    }
+
+    private var timelineSummary: String {
+        let n = routeVM.upcomingStops.count + 1  // include user's stop
+        let word = n == 1 ? "stop" : "stops"
+        return "\(n) \(word) to terminus"
+    }
+
+    @ViewBuilder
+    private var timelineBody: some View {
+        switch routeVM.routesState {
+        case .loading:
+            HStack(spacing: 10) {
+                ProgressView().controlSize(.small)
+                Text("Loading route…")
+                    .font(.system(size: 12, weight: .medium))
+                    .foregroundStyle(Color.cfTextSecondary)
+            }
+            .padding(.horizontal, 16)
+            .padding(.vertical, 12)
+        case .unavailable, .idle:
+            Text("Route data unavailable")
+                .font(.system(size: 12, weight: .medium))
+                .foregroundStyle(Color.cfTextTertiary)
+                .padding(.horizontal, 16)
+                .padding(.vertical, 12)
+        case .ready:
+            timelineRows
+        }
+    }
+
+    private var timelineRows: some View {
+        let upcoming = routeVM.upcomingStops
+        let total = upcoming.count + 1  // + user's stop
+        return VStack(spacing: 0) {
+            // User's boarding stop at the top
+            timelineRow(
+                name: stopName ?? (busStopCode.map { "Stop \($0)" } ?? "Your stop"),
+                eta: displayMinutes() == "Now" ? "Now" : "\(displayMinutes()) min",
+                marker: .userBoarding,
+                isFirst: true,
+                isLast: total == 1
+            )
+            ForEach(Array(upcoming.enumerated()), id: \.element.id) { idx, stop in
+                let isTerminus = idx == upcoming.count - 1
+                timelineRow(
+                    name: stop.name,
+                    eta: stop.etaMinutes.map { "\($0) min" } ?? "",
+                    marker: isTerminus ? .terminus : .future,
+                    isFirst: false,
+                    isLast: idx == upcoming.count - 1
+                )
+            }
+        }
+    }
+
+    private enum Marker { case past, current, future, userBoarding, terminus }
+
+    private func timelineRow(name: String, eta: String, marker: Marker, isFirst: Bool, isLast: Bool) -> some View {
+        HStack(alignment: .top, spacing: 12) {
+            // Left rail: connector + marker
+            ZStack(alignment: .top) {
+                if !isFirst {
+                    Rectangle()
+                        .fill(railColor(below: marker))
+                        .frame(width: 2)
+                        .frame(maxHeight: 18)
+                        .frame(maxHeight: .infinity, alignment: .top)
+                }
+                if !isLast {
+                    Rectangle()
+                        .fill(railColor(above: marker))
+                        .frame(width: 2)
+                        .padding(.top, 28)
+                }
+                markerView(marker)
+                    .padding(.top, 10)
+            }
+            .frame(width: 16, alignment: .center)
+            .frame(maxHeight: .infinity)
+
+            // Right content
+            HStack(alignment: .center) {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(name)
+                        .font(.system(
+                            size: marker == .userBoarding ? 14 : 13,
+                            weight: marker == .userBoarding || marker == .terminus ? .bold : .medium
+                        ))
+                        .foregroundStyle(textColor(marker))
+                        .lineLimit(1)
+                    if marker == .userBoarding {
+                        Text("Your boarding stop")
+                            .font(.system(size: 10, weight: .semibold))
+                            .foregroundStyle(Color.black.opacity(0.60))
+                    } else if marker == .terminus {
+                        Text("Terminus")
+                            .font(.system(size: 10, weight: .medium))
+                            .foregroundStyle(Color.cfTextTertiary)
+                    }
+                }
+                Spacer(minLength: 8)
+                if !eta.isEmpty {
+                    Text(eta)
+                        .font(.system(size: 12, weight: .bold))
+                        .monospacedDigit()
+                        .foregroundStyle(textColor(marker))
+                }
+            }
+            .padding(.vertical, 10)
+            .padding(.horizontal, marker == .userBoarding ? 8 : 0)
+            .padding(.leading, marker == .userBoarding ? -1 : 0)
+            .background {
+                if marker == .userBoarding {
+                    RoundedRectangle(cornerRadius: 8, style: .continuous)
+                        .fill(Color(hex: 0x0F172A).opacity(0.05))
                 }
             }
         }
-        .padding(16)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Color.appInfoBg)
-        .clipShape(RoundedRectangle(cornerRadius: Radius.card, style: .continuous))
-        .padding(.horizontal, Spacing.screen)
+        .padding(.horizontal, 16)
     }
 
-    // MARK: - Live Activity card
+    @ViewBuilder
+    private func markerView(_ m: Marker) -> some View {
+        switch m {
+        case .userBoarding:
+            ZStack {
+                Circle().fill(Color.white).frame(width: 20, height: 20)
+                    .overlay(Circle().stroke(Color.cfNowFill, lineWidth: 2))
+                BusStopIcon(size: 10, color: Color.cfNowFill, strokeWidth: 2.5)
+            }
+        case .terminus:
+            RoundedRectangle(cornerRadius: 2, style: .continuous)
+                .fill(Color.cfNowFill)
+                .frame(width: 12, height: 12)
+        case .future:
+            Circle().fill(Color.black.opacity(0.15)).frame(width: 8, height: 8)
+                .padding(.top, 6)
+        case .past:
+            Circle().fill(Color.black.opacity(0.35)).frame(width: 8, height: 8)
+                .padding(.top, 6)
+        case .current:
+            ZStack {
+                Circle().fill(Color.black.opacity(0.20)).frame(width: 24, height: 24)
+                Circle().fill(Color.cfNowFill).frame(width: 18, height: 18)
+                Image(systemName: "bus.fill")
+                    .font(.system(size: 10, weight: .bold))
+                    .foregroundStyle(.white)
+            }
+        }
+    }
+
+    private func textColor(_ m: Marker) -> Color {
+        switch m {
+        case .past: Color.cfTextTertiary
+        default: Color.cfTextPrimary
+        }
+    }
+
+    private func railColor(above m: Marker) -> Color {
+        switch m { case .past, .current: Color.black.opacity(0.45); default: Color.black.opacity(0.12) }
+    }
+    private func railColor(below m: Marker) -> Color {
+        // Connector entering this marker mirrors what's above the prior one;
+        // for v1 (no past stops surfaced) every connector is "future" tone.
+        Color.black.opacity(0.12)
+    }
+
+    // MARK: - On this bus
+
+    private var onThisBusCard: some View {
+        VStack(spacing: 0) {
+            sectionHeader("ON THIS BUS")
+            Divider().background(Color.black.opacity(0.05))
+            row(label: "Crowd level") {
+                HStack(spacing: 6) {
+                    CrowdPeople(level: crowdLevel, size: 12)
+                    Text(crowdText)
+                        .font(.system(size: 12, weight: .bold))
+                        .foregroundStyle(Color.cfTextPrimary)
+                }
+            }
+            Divider().background(Color.black.opacity(0.04))
+            row(label: "Reliability") {
+                Text(currentArrival.nextArrivalIsScheduled ? "Volatile · ± 3 min" : "On time")
+                    .font(.system(size: 12, weight: .bold))
+                    .foregroundStyle(Color.cfTextPrimary)
+            }
+            Divider().background(Color.black.opacity(0.04))
+            row(label: "Bus type") {
+                Text(currentArrival.nextArrivalType.label)
+                    .font(.system(size: 12, weight: .bold))
+                    .foregroundStyle(Color.cfTextPrimary)
+            }
+            Divider().background(Color.black.opacity(0.04))
+            row(label: "Operator") {
+                Text(operatorLabel)
+                    .font(.system(size: 12, weight: .bold))
+                    .foregroundStyle(Color.cfTextPrimary)
+            }
+        }
+        .glassSurface(cornerRadius: 18)
+    }
+
+    private func sectionHeader(_ title: String) -> some View {
+        HStack {
+            Text(title)
+                .font(.system(size: 10, weight: .bold))
+                .tracking(1.2)
+                .foregroundStyle(Color.cfTextTertiary)
+            Spacer()
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 12)
+    }
+
+    private func row<Trailing: View>(label: String, @ViewBuilder trailing: () -> Trailing) -> some View {
+        HStack {
+            Text(label)
+                .font(.system(size: 13, weight: .semibold))
+                .foregroundStyle(Color.cfTextSecondary)
+            Spacer()
+            trailing()
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 12)
+    }
+
+    private var crowdLevel: CrowdPeople.Level {
+        switch currentArrival.nextArrivalCrowd {
+        case .seats: .low
+        case .standing: .med
+        case .limited: .high
+        case .unknown: .low
+        }
+    }
+
+    private var crowdText: String {
+        switch currentArrival.nextArrivalCrowd {
+        case .seats: "Seats available"
+        case .standing: "Standing room"
+        case .limited: "Packed"
+        case .unknown: "—"
+        }
+    }
+
+    private var operatorLabel: String {
+        switch currentArrival.operatorName {
+        case "SBST", "SBS": return "SBS Transit"
+        case "SMRT": return "SMRT"
+        case "TTS": return "Tower Transit"
+        case "GAS": return "Go-Ahead"
+        case "": return "—"
+        default: return currentArrival.operatorName
+        }
+    }
+
+    // MARK: - Live Activity (kept from original feature set)
 
     private var liveActivityCard: some View {
         Toggle(isOn: Binding(
@@ -295,41 +523,30 @@ struct LiveTrackingView: View {
         )) {
             HStack(spacing: 10) {
                 Image(systemName: "bolt.heart.fill")
-                    .font(.system(size: 16, weight: .semibold))
-                    .foregroundStyle(Color.appInfo)
-                    .frame(width: 32, height: 32)
-                    .background(Color.appInfoBg)
-                    .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundStyle(Color.cfTextPrimary)
+                    .frame(width: 28, height: 28)
+                    .background(Color.black.opacity(0.06), in: Circle())
                 VStack(alignment: .leading, spacing: 2) {
                     Text("Track on Lock Screen")
-                        .font(.appBodyMedium)
-                        .foregroundStyle(Color.appText)
-                    Text("Live ETA in the Dynamic Island and notifications.")
-                        .font(.appCaption)
-                        .foregroundStyle(Color.appText2)
+                        .font(.system(size: 13, weight: .bold))
+                        .foregroundStyle(Color.cfTextPrimary)
+                    Text("Live ETA in the Dynamic Island")
+                        .font(.system(size: 11, weight: .medium))
+                        .foregroundStyle(Color.cfTextSecondary)
                 }
             }
         }
-        .tint(Color.appInfo)
-        .padding(Spacing.cardInner)
-        .background(Color.appSurface)
-        .overlay(
-            RoundedRectangle(cornerRadius: Radius.card, style: .continuous)
-                .stroke(Color.appBorder, lineWidth: 0.5)
-        )
-        .clipShape(RoundedRectangle(cornerRadius: Radius.card, style: .continuous))
-        .padding(.horizontal, Spacing.screen)
+        .tint(Color.cfNowFill)
+        .padding(14)
+        .glassSurface(cornerRadius: 16)
         .sensoryFeedback(trackingOnLockScreen ? .success : .selection, trigger: trackingOnLockScreen)
-        // On view appear, sync the toggle with whatever activity is in flight
-        // so backgrounding + reopening doesn't lose state.
         .onAppear {
             trackingOnLockScreen = LiveActivityManager.shared.isActive(
                 for: currentArrival.serviceNo,
                 stopCode: busStopCode
             )
         }
-        // While the toggle is on, push the latest ETA to the activity each
-        // poll tick so the Lock Screen / Dynamic Island stays in sync.
         .onChange(of: currentArrival.nextArrivalAt) { _, _ in pushActivityUpdate() }
         .onChange(of: currentArrival.nextArrivalCrowd) { _, _ in pushActivityUpdate() }
     }
@@ -338,14 +555,12 @@ struct LiveTrackingView: View {
         LiveActivityManager.shared.start(
             serviceNo: currentArrival.serviceNo,
             destination: currentArrival.destination,
-            stopName: stopNameForActivity(),
+            stopName: stopName ?? (busStopCode ?? "your stop"),
             stopCode: busStopCode ?? "",
             etaMinutes: currentArrival.nextArrivalMinutes,
             isLive: isLive,
             crowdLevel: currentArrival.nextArrivalCrowd.label
         )
-        // If the system rejected (permission off, throttled, etc.), reflect
-        // that in the toggle so it doesn't appear "on" with nothing happening.
         if LiveActivityManager.shared.current == nil {
             trackingOnLockScreen = false
         }
@@ -366,330 +581,27 @@ struct LiveTrackingView: View {
         }
     }
 
-    private func stopNameForActivity() -> String {
-        // Best-effort: we don't carry the stop name through this view, so
-        // fall back to the code if needed. The Live Activity UI tolerates
-        // either.
-        busStopCode ?? "your stop"
+    // MARK: - Data
+
+    private func loadStopName() async {
+        guard let busStopCode else { return }
+        let stops = await stopsRepo.stops
+        stopName = stops.first { $0.id == busStopCode }?.name
     }
 
-    private func displayMinutes(at now: Date) -> String {
-        // Spec §3: ≤ 2 min collapses to "Now". Same rule across home / detail
-        // / live tracking so the labelling is consistent everywhere.
-        if isLive, let arrAt = currentArrival.nextArrivalAt {
-            let secs = max(0, Int(arrAt.timeIntervalSince(now)))
-            if secs <= 120 { return "Now" }
-            return "\(Int(ceil(Double(secs) / 60.0)))"
+    @MainActor
+    private func poll(force: Bool) async {
+        guard let code = busStopCode else { return }
+        guard force || Date().timeIntervalSince(lastPolled) > pollInterval - 1 else { return }
+        do {
+            let live = try await lta.busArrivals(at: code, force: force)
+            if let updated = live.first(where: { $0.serviceNo == currentArrival.serviceNo }) {
+                currentArrival = updated
+                isLive = true
+            }
+            lastPolled = Date()
+        } catch {
+            // keep last known data
         }
-        if demoSecondsLeft <= 120 { return "Now" }
-        return "\(Int(ceil(Double(demoSecondsLeft) / 60.0)))"
-    }
-
-    // MARK: - Details
-
-    private var detailsCard: some View {
-        VStack(spacing: 0) {
-            row(key: "Bus type") {
-                Text(currentArrival.nextArrivalType.label).font(.appLabelMedium)
-            }
-            Divider().background(Color.appBorder)
-            row(key: "Operator") {
-                Text(operatorLabel).font(.appLabelMedium)
-            }
-            Divider().background(Color.appBorder)
-            row(key: "Crowd") {
-                CrowdIndicator(level: currentArrival.nextArrivalCrowd)
-            }
-        }
-        .padding(Spacing.cardInner)
-        .background(Color.appSurface)
-        .overlay(
-            RoundedRectangle(cornerRadius: Radius.card, style: .continuous)
-                .stroke(Color.appBorder, lineWidth: 0.5)
-        )
-        .clipShape(RoundedRectangle(cornerRadius: Radius.card, style: .continuous))
-        .padding(.horizontal, Spacing.screen)
-    }
-
-    private var operatorLabel: String {
-        switch currentArrival.operatorName {
-        case "SBST", "SBS": return "SBS Transit"
-        case "SMRT": return "SMRT"
-        case "TTS":  return "Tower Transit"
-        case "GAS":  return "Go-Ahead"
-        case "":     return "—"
-        default:     return currentArrival.operatorName
-        }
-    }
-
-    private func row<Trailing: View>(
-        key: String,
-        @ViewBuilder trailing: () -> Trailing
-    ) -> some View {
-        HStack {
-            Text(key)
-                .font(.appLabel)
-                .foregroundStyle(Color.appText2)
-            Spacer()
-            trailing()
-                .foregroundStyle(Color.appText)
-        }
-        .padding(.vertical, 8)
-    }
-
-    // MARK: - Timeline
-
-    private var timeline: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            HStack(spacing: 8) {
-                Text("Onward journey")
-                    .font(.appCaptionStrong)
-                    .textCase(.uppercase)
-                    .tracking(0.5)
-                    .foregroundStyle(Color.appText2)
-                Spacer()
-                LiveBadge(mode: timelineLiveMode)
-            }
-            .padding(.bottom, 6)
-            .padding(.horizontal, Spacing.screen)
-
-            if let summary = timelineSummary {
-                Text(summary)
-                    .font(.appCaption)
-                    .foregroundStyle(Color.appText3)
-                    .padding(.bottom, 10)
-                    .padding(.horizontal, Spacing.screen)
-            }
-
-            timelineBody
-                .padding(.horizontal, Spacing.screen)
-        }
-    }
-
-    /// "{N} stops · ~{M} min to {terminus name}" — uses live ETA from the
-    /// last stop with a known ETA, otherwise the model's ETA window.
-    private var timelineSummary: String? {
-        guard !routeVM.upcomingStops.isEmpty else { return nil }
-        let count = routeVM.upcomingStops.count
-        let stopsWord = count == 1 ? "stop" : "stops"
-        let terminusName = routeVM.upcomingStops.last?.name ?? "terminus"
-
-        // Use the latest known ETA among visible stops as a rough total.
-        let lastWithETA = routeVM.upcomingStops.last { $0.etaMinutes != nil }
-        if let lastETA = lastWithETA?.etaMinutes, count > 1 {
-            return "\(count) \(stopsWord) · ~\(lastETA) min+ to \(terminusName)"
-        }
-        return "\(count) \(stopsWord) to \(terminusName)"
-    }
-
-    private var timelineLiveMode: LiveBadge.Mode {
-        switch routeVM.routesState {
-        case .ready: routeVM.upcomingStops.isEmpty ? .demo : .live
-        default:     .demo
-        }
-    }
-
-    @ViewBuilder
-    private var timelineBody: some View {
-        switch routeVM.routesState {
-        case .loading(let rowsLoaded):
-            HStack(spacing: 12) {
-                ProgressView().controlSize(.small).tint(Color.appInfo)
-                VStack(alignment: .leading, spacing: 2) {
-                    Text("Loading route data")
-                        .font(.appBodyMedium)
-                        .foregroundStyle(Color.appText)
-                    Text(rowsLoaded == 0 ? "Connecting to LTA…" : "\(rowsLoaded) route stops loaded")
-                        .font(.appMicro)
-                        .foregroundStyle(Color.appText3)
-                }
-                Spacer()
-            }
-            .padding(.vertical, 12)
-
-        case .unavailable, .idle:
-            VStack(spacing: 0) {
-                let mock = MockDataService.shared.upcomingStops(forService: currentArrival.serviceNo)
-                ForEach(Array(mock.enumerated()), id: \.offset) { idx, stop in
-                    timelineRow(
-                        idx: idx,
-                        name: stop.name,
-                        etaText: "\(stop.etaMin) min",
-                        isFirst: idx == 0,
-                        isTerminus: idx == mock.count - 1,
-                        isLast: idx == mock.count - 1,
-                        hasETA: true
-                    )
-                }
-            }
-
-        case .ready:
-            if routeVM.upcomingStops.isEmpty {
-                Text("No upcoming stops found for this route.")
-                    .font(.appCaption)
-                    .foregroundStyle(Color.appText2)
-                    .padding(.vertical, 12)
-            } else {
-                expandableTimeline
-            }
-        }
-    }
-
-    /// Live-data timeline. Shows the first `collapsedTimelineLimit` stops by
-    /// default; "Show all stops" reveals the rest down to the terminus.
-    private var expandableTimeline: some View {
-        let stops = routeVM.upcomingStops
-        let total = stops.count
-        let shouldCollapse = !timelineExpanded && total > collapsedTimelineLimit
-        let visibleCount = shouldCollapse ? collapsedTimelineLimit : total
-        let visible = Array(stops.prefix(visibleCount))
-        let hidden = total - visibleCount
-
-        return VStack(spacing: 0) {
-            ForEach(Array(visible.enumerated()), id: \.element.id) { idx, stop in
-                let absoluteIdx = idx
-                timelineRow(
-                    idx: absoluteIdx,
-                    name: stop.name,
-                    etaText: etaLabel(stop),
-                    isFirst: absoluteIdx == 0,
-                    isTerminus: absoluteIdx == total - 1,
-                    isLast: idx == visible.count - 1 && hidden == 0,
-                    hasETA: stop.etaMinutes != nil
-                )
-            }
-
-            if shouldCollapse {
-                Button {
-                    withAnimation(.smooth(duration: 0.25)) {
-                        timelineExpanded = true
-                    }
-                } label: {
-                    HStack(spacing: 8) {
-                        Circle()
-                            .stroke(Color.appBorderStrong, style: StrokeStyle(lineWidth: 1, dash: [2, 2]))
-                            .frame(width: 9, height: 9)
-                        Text("Show all stops")
-                            .font(.appLabelMedium)
-                            .foregroundStyle(Color.appInfo)
-                        Text("(\(hidden) more to terminus)")
-                            .font(.appCaption)
-                            .foregroundStyle(Color.appText3)
-                        Spacer()
-                        Image(systemName: "chevron.down")
-                            .font(.system(size: 11, weight: .semibold))
-                            .foregroundStyle(Color.appInfo)
-                    }
-                    .padding(.vertical, 8)
-                    .contentShape(Rectangle())
-                }
-                .buttonStyle(.plain)
-            } else if timelineExpanded && total > collapsedTimelineLimit {
-                Button {
-                    withAnimation(.smooth(duration: 0.25)) {
-                        timelineExpanded = false
-                    }
-                } label: {
-                    HStack(spacing: 8) {
-                        Image(systemName: "chevron.up")
-                            .font(.system(size: 11, weight: .semibold))
-                            .foregroundStyle(Color.appInfo)
-                        Text("Show less")
-                            .font(.appLabelMedium)
-                            .foregroundStyle(Color.appInfo)
-                        Spacer()
-                    }
-                    .padding(.vertical, 8)
-                    .padding(.leading, 19)
-                    .contentShape(Rectangle())
-                }
-                .buttonStyle(.plain)
-            }
-        }
-    }
-
-    private func etaLabel(_ stop: LiveTrackingViewModel.UpcomingStop) -> String {
-        // Empty (not "—") for nil — the timeline row hides the ETA chip
-        // entirely when there's no signal, which reads cleaner than a dash.
-        guard stop.etaMinutes != nil else { return "" }
-        return ArrivalStatus.label(minutes: stop.etaMinutes, scheduled: stop.etaScheduled)
-    }
-
-    /// One row in the journey timeline, with a hairline connector down the
-    /// left to the next row. The terminus is highlighted with a flag glyph
-    /// and a "Terminus" tag.
-    private func timelineRow(
-        idx: Int,
-        name: String,
-        etaText: String,
-        isFirst: Bool,
-        isTerminus: Bool,
-        isLast: Bool,
-        hasETA: Bool
-    ) -> some View {
-        HStack(alignment: .top, spacing: 12) {
-            VStack(spacing: 0) {
-                indicator(isFirst: isFirst, isTerminus: isTerminus)
-                if !isLast {
-                    Rectangle()
-                        .fill(Color.appBorder)
-                        .frame(width: 2)
-                        .frame(maxHeight: .infinity)
-                }
-            }
-            .frame(width: 14)
-            .frame(maxHeight: .infinity, alignment: .top)
-
-            VStack(alignment: .leading, spacing: 2) {
-                HStack {
-                    Text(name)
-                        .font(.appBody)
-                        .foregroundStyle(rowTextColor(isFirst: isFirst, isTerminus: isTerminus))
-                        .fontWeight(isTerminus ? .semibold : .regular)
-                        .lineLimit(1)
-                    Spacer(minLength: 6)
-                    if !etaText.isEmpty {
-                        Text(etaText)
-                            .font(.appCaption)
-                            .foregroundStyle(Color.appText2)
-                    }
-                }
-                if isTerminus {
-                    Text("Terminus")
-                        .font(.appMicroStrong)
-                        .textCase(.uppercase)
-                        .tracking(0.4)
-                        .foregroundStyle(Color.appInfo)
-                } else if !hasETA {
-                    Text("Stop \(idx + 1)")
-                        .font(.appMicro)
-                        .foregroundStyle(Color.appText3)
-                }
-            }
-            .padding(.bottom, isLast ? 0 : 10)
-        }
-    }
-
-    @ViewBuilder
-    private func indicator(isFirst: Bool, isTerminus: Bool) -> some View {
-        if isTerminus {
-            ZStack {
-                Circle().fill(Color.appInfo).frame(width: 14, height: 14)
-                Image(systemName: "flag.checkered")
-                    .font(.system(size: 7, weight: .bold))
-                    .foregroundStyle(.white)
-            }
-        } else {
-            Circle()
-                .fill(isFirst ? Color.appInfo : Color.appBorderStrong)
-                .frame(width: isFirst ? 11 : 9, height: isFirst ? 11 : 9)
-                .padding(.top, 4)
-        }
-    }
-
-    private func rowTextColor(isFirst: Bool, isTerminus: Bool) -> Color {
-        if isTerminus { return Color.appText }
-        if isFirst { return Color.appText }
-        return Color.appText2
     }
 }
