@@ -45,13 +45,17 @@ final class PlanViewModel {
         }()
     }
 
-    static let defaultFrom = "Current location"
-    static let defaultTo = "Marina Bay Sands"
+    /// Both fields start empty so the planner doesn't claim a default trip
+    /// the user didn't ask for. The From field is treated as "current
+    /// location" implicitly when empty (see `effectiveFromText`); the To
+    /// field empty → no journey options computed at all.
+    static let defaultFrom = ""
+    static let defaultTo = ""
 
-    private(set) var fromText: String = PlanViewModel.defaultFrom {
+    private(set) var fromText: String = "" {
         didSet { if oldValue != fromText { recompute() } }
     }
-    private(set) var toText: String = PlanViewModel.defaultTo {
+    private(set) var toText: String = "" {
         didSet { if oldValue != toText { recompute() } }
     }
     /// Coordinate for `fromText` when known (e.g. picked from a geocoded
@@ -82,11 +86,12 @@ final class PlanViewModel {
 
     init(mock: MockDataService = .shared) {
         self.mock = mock
-        self.rawOptions = mock.journeyOptions(
-            from: Self.defaultFrom,
-            to: Self.defaultTo,
-            originHint: LocationService.shared.lastLocation?.coordinate
-        )
+        // No options on launch — user must pick a destination first.
+        self.rawOptions = []
+    }
+
+    var hasDestination: Bool {
+        !toText.trimmingCharacters(in: .whitespaces).isEmpty
     }
 
     /// Update the From field's text + coordinate atomically. Pass `coordinate`
@@ -112,11 +117,31 @@ final class PlanViewModel {
         setTo(fT, coordinate: fC)
     }
 
+    /// Reset both fields back to empty. The didSet on `toText` triggers a
+    /// recompute, which in turn empties `rawOptions`. UI re-renders with
+    /// the empty state.
+    func clear() {
+        fromCoordinate = nil
+        toCoordinate = nil
+        fromText = ""
+        toText = ""
+    }
+
+    var hasAnyValue: Bool {
+        !fromText.isEmpty || !toText.isEmpty
+    }
+
     func recompute() {
+        // No destination → no options. Don't pretend to plan.
+        guard hasDestination else {
+            withAnimation(.smooth(duration: 0.25)) { rawOptions = [] }
+            return
+        }
+        let effectiveFrom = fromText.isEmpty ? "Current location" : fromText
         let origin = fromCoordinate ?? LocationService.shared.lastLocation?.coordinate
         withAnimation(.smooth(duration: 0.25)) {
             rawOptions = mock.journeyOptions(
-                from: fromText,
+                from: effectiveFrom,
                 to: toText,
                 originHint: origin,
                 destinationHint: toCoordinate
@@ -124,7 +149,9 @@ final class PlanViewModel {
         }
     }
 
+    /// Empty From → routing uses the user's current GPS as origin.
     var fromIsCurrentLocation: Bool {
-        fromText.localizedCaseInsensitiveCompare("Current location") == .orderedSame
+        fromText.isEmpty
+            || fromText.localizedCaseInsensitiveCompare("Current location") == .orderedSame
     }
 }

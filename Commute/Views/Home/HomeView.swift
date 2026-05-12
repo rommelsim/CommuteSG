@@ -486,10 +486,19 @@ struct HomeView: View {
         }
     }
 
-    /// Real journey suggestion: ask `JourneySuggester` for the soonest bus
-    /// at the user's nearest stop that goes to the relevant saved place
-    /// (Work in the morning, Home in the evening/night). Returns nil if no
-    /// match — hero will simply hide the journey row.
+    /// Pick a journey to surface in the hero. Two-tier strategy:
+    ///   1. Ask `JourneySuggester` for a bus at the user's nearest stop that
+    ///      actually routes to the relevant saved place (Work in the
+    ///      morning, Home in the evening/night). If we get a real match,
+    ///      use it.
+    ///   2. Otherwise fall back to the next nearby bus and frame it as the
+    ///      start of the journey toward the saved place. This avoids a
+    ///      blank hero when the saved address isn't directly served by any
+    ///      visible bus (common for office buildings, residential blocks
+    ///      that need a transfer, etc.) — better to show the user "what's
+    ///      leaving next" than nothing.
+    /// Returns nil only when there's no saved place for the current time
+    /// of day or no nearby bus data at all.
     private func refreshHeroJourney() async {
         let kind: SavedPlace.Kind? = {
             switch timeContext {
@@ -506,30 +515,69 @@ struct HomeView: View {
             heroJourney = nil
             return
         }
-        let suggested = await JourneySuggester.shared.suggest(
-            destinationAddress: address,
-            from: firstStop.arrivals,
-            userStopCode: firstStop.stop.id
-        )
-        guard let arrival = suggested,
-              let eta = arrival.nextArrivalMinutes
-        else {
-            heroJourney = nil
+        let label = kind == .work ? "Work" : "Home"
+
+        // Tier 1: try for a routed match.
+        if let arrival = await JourneySuggester.shared.suggest(
+                destinationAddress: address,
+                from: firstStop.arrivals,
+                userStopCode: firstStop.stop.id),
+           let eta = arrival.nextArrivalMinutes {
+            heroJourney = makeJourney(
+                arrival: arrival,
+                eta: eta,
+                fromStop: firstStop.stop.name,
+                destinationLabel: label,
+                destinationFallback: address,
+                exactMatch: true
+            )
             return
         }
-        let destinationName = StopsAdapters.destinationLabel(for: arrival).ifEmpty(address)
+
+        // Tier 2: best-effort fallback — show the first nearby bus framed
+        // toward the saved destination. We don't claim it routes there
+        // exactly; the slack copy reads "next bus from <stop>" so the user
+        // knows it's a heading suggestion, not a guaranteed route.
+        if let firstArrival = firstStop.arrivals.first,
+           let eta = firstArrival.nextArrivalMinutes {
+            heroJourney = makeJourney(
+                arrival: firstArrival,
+                eta: eta,
+                fromStop: firstStop.stop.name,
+                destinationLabel: label,
+                destinationFallback: address,
+                exactMatch: false
+            )
+            return
+        }
+
+        heroJourney = nil
+    }
+
+    private func makeJourney(
+        arrival: BusArrival,
+        eta: Int,
+        fromStop: String,
+        destinationLabel: String,
+        destinationFallback: String,
+        exactMatch: Bool
+    ) -> HeroContext.Journey {
+        let destinationName = StopsAdapters
+            .destinationLabel(for: arrival)
+            .ifEmpty(destinationFallback)
         let slack: String = {
             if timeContext == .night { return "Last service tonight" }
-            return "\(max(eta - 2, 1)) min to spare"
+            if exactMatch { return "\(max(eta - 2, 1)) min to spare" }
+            return "Next bus from \(fromStop)"
         }()
-        let totalTrip = max(eta + 12, 18)  // estimate: walk + ride. Real routing later.
-        heroJourney = HeroContext.Journey(
+        let totalTrip = max(eta + 12, 18)
+        return HeroContext.Journey(
             bus: arrival.serviceNo,
             etaMinutes: eta,
             slack: slack,
             destination: destinationName,
-            destinationLabel: kind == .work ? "Work" : "Home",
-            fromStop: firstStop.stop.name,
+            destinationLabel: destinationLabel,
+            fromStop: fromStop,
             totalTripMinutes: totalTrip,
             arriveByLabel: arriveByLabel(in: totalTrip),
             alternative: nil

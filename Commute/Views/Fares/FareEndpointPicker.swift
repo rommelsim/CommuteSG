@@ -38,7 +38,7 @@ struct FareEndpointPicker: View {
                     .padding(.horizontal, Spacing.screen)
                     .padding(.top, 12)
                     .padding(.bottom, 12)
-                Divider().background(Color.appBorder)
+                Divider().background(Color.cfHairline)
                 content
             }
             .background(Color.appSurface)
@@ -73,13 +73,13 @@ struct FareEndpointPicker: View {
             Spacer().frame(height: 28)
             Image(systemName: "magnifyingglass")
                 .font(.system(size: 28, weight: .light))
-                .foregroundStyle(Color.appText3)
+                .foregroundStyle(Color.cfTextTertiary)
             Text("Search for an MRT station or bus stop")
                 .font(.appBody)
-                .foregroundStyle(Color.appText2)
+                .foregroundStyle(Color.cfTextSecondary)
             Text("e.g. \"Jurong East\", \"Marina Bay\", or a 5-digit stop code.")
                 .font(.appCaption)
-                .foregroundStyle(Color.appText3)
+                .foregroundStyle(Color.cfTextTertiary)
                 .multilineTextAlignment(.center)
             Spacer()
         }
@@ -130,7 +130,7 @@ struct FareEndpointPicker: View {
     private func sectionHeader(_ title: String) -> some View {
         Text(title)
             .font(.appCaptionStrong)
-            .foregroundStyle(Color.appText3)
+            .foregroundStyle(Color.cfTextTertiary)
             .textCase(.uppercase)
             .tracking(0.4)
             .padding(.horizontal, Spacing.screen)
@@ -141,7 +141,7 @@ struct FareEndpointPicker: View {
         return HStack(spacing: 10) {
             Image(systemName: "magnifyingglass")
                 .font(.system(size: 16, weight: .medium))
-                .foregroundStyle(Color.appText2)
+                .foregroundStyle(Color.cfTextSecondary)
             TextField("Station, stop, road, or 5-digit code", text: $search.query)
                 .focused($isFocused)
                 .submitLabel(.search)
@@ -154,7 +154,7 @@ struct FareEndpointPicker: View {
                 Button { search.query = "" } label: {
                     Image(systemName: "xmark.circle.fill")
                         .font(.system(size: 16))
-                        .foregroundStyle(Color.appText3)
+                        .foregroundStyle(Color.cfTextTertiary)
                 }
                 .buttonStyle(.plain)
             }
@@ -171,15 +171,15 @@ struct FareEndpointPicker: View {
             VStack(alignment: .leading, spacing: 2) {
                 Text(station.name)
                     .font(.appBodyMedium)
-                    .foregroundStyle(Color.appText)
+                    .foregroundStyle(Color.cfTextPrimary)
                 Text(station.line.fullName)
                     .font(.appCaption)
-                    .foregroundStyle(Color.appText2)
+                    .foregroundStyle(Color.cfTextSecondary)
             }
             Spacer()
             Image(systemName: "chevron.right")
                 .font(.system(size: 12, weight: .semibold))
-                .foregroundStyle(Color.appText3)
+                .foregroundStyle(Color.cfTextTertiary)
         }
         .padding(.vertical, 10)
         .padding(.horizontal, Spacing.screen)
@@ -190,23 +190,23 @@ struct FareEndpointPicker: View {
         HStack(spacing: 12) {
             Image(systemName: "bus.fill")
                 .font(.system(size: 14, weight: .medium))
-                .foregroundStyle(Color.appText2)
+                .foregroundStyle(Color.cfTextSecondary)
                 .frame(width: 32, height: 32)
                 .background(Color.appSurface2)
                 .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
             VStack(alignment: .leading, spacing: 2) {
                 Text(stop.name)
                     .font(.appBodyMedium)
-                    .foregroundStyle(Color.appText)
+                    .foregroundStyle(Color.cfTextPrimary)
                 Text("\(stop.id) · \(stop.road)")
                     .font(.appCaption)
-                    .foregroundStyle(Color.appText2)
+                    .foregroundStyle(Color.cfTextSecondary)
                     .lineLimit(1)
             }
             Spacer()
             Image(systemName: "chevron.right")
                 .font(.system(size: 12, weight: .semibold))
-                .foregroundStyle(Color.appText3)
+                .foregroundStyle(Color.cfTextTertiary)
         }
         .padding(.vertical, 10)
         .padding(.horizontal, Spacing.screen)

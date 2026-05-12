@@ -17,26 +17,45 @@ struct PlanView: View {
                 VStack(spacing: Spacing.s16) {
                     fromToPanel
                         .padding(.horizontal, Spacing.screen)
-                    timePill
-                        .padding(.horizontal, Spacing.screen)
+                    if viewModel.hasAnyValue {
+                        clearAllButton
+                            .padding(.horizontal, Spacing.screen)
+                            .transition(.opacity.combined(with: .move(edge: .top)))
+                    }
+                    if viewModel.hasDestination {
+                        timePill
+                            .padding(.horizontal, Spacing.screen)
+                            .transition(.opacity.combined(with: .move(edge: .top)))
+                    }
                     if !quickDestinations.isEmpty {
                         quickDestinationStrip
                     }
-                    Divider()
-                        .background(Color.appBorder)
-                        .padding(.horizontal, Spacing.screen)
-                        .padding(.top, 4)
-                    FilterPills(
-                        options: PlanViewModel.Filter.allCases,
-                        label: { $0.label },
-                        selection: $vm.filter
-                    )
-                    options
-                        .padding(.horizontal, Spacing.screen)
-                        .padding(.top, 4)
+                    if viewModel.hasDestination {
+                        Divider()
+                            .background(Color.cfHairline)
+                            .padding(.horizontal, Spacing.screen)
+                            .padding(.top, 4)
+                            .transition(.opacity)
+                        FilterPills(
+                            options: PlanViewModel.Filter.allCases,
+                            label: { $0.label },
+                            selection: $vm.filter
+                        )
+                        .transition(.opacity.combined(with: .scale(scale: 0.96, anchor: .top)))
+                        options
+                            .padding(.horizontal, Spacing.screen)
+                            .padding(.top, 4)
+                            .transition(.opacity.combined(with: .move(edge: .bottom)))
+                    } else {
+                        emptyState
+                            .padding(.top, 28)
+                            .transition(.opacity)
+                    }
                 }
                 .padding(.top, 8)
                 .padding(.bottom, 32)
+                .animation(.smooth(duration: 0.32), value: viewModel.hasDestination)
+                .animation(.snappy(duration: 0.20), value: viewModel.hasAnyValue)
             }
             .scrollIndicators(.hidden)
             .background(Color.appSurface)
@@ -88,12 +107,13 @@ struct PlanView: View {
                     leading: fromLeading,
                     label: "From",
                     value: viewModel.fromText,
+                    placeholder: "Your current location",
                     isPlaceholder: viewModel.fromIsCurrentLocation
                 ) {
                     editingField = .from
                 }
                 Divider()
-                    .background(Color.appBorder)
+                    .background(Color.cfHairline)
                     .padding(.leading, 44)
                 fieldRow(
                     leading: AnyView(
@@ -103,7 +123,8 @@ struct PlanView: View {
                     ),
                     label: "To",
                     value: viewModel.toText,
-                    isPlaceholder: false
+                    placeholder: "Where to?",
+                    isPlaceholder: !viewModel.hasDestination
                 ) {
                     editingField = .to
                 }
@@ -112,7 +133,7 @@ struct PlanView: View {
             .clipShape(RoundedRectangle(cornerRadius: Radius.large, style: .continuous))
             .overlay(
                 RoundedRectangle(cornerRadius: Radius.large, style: .continuous)
-                    .stroke(Color.appBorder, lineWidth: 0.5)
+                    .stroke(Color.cfHairline, lineWidth: 0.5)
             )
 
             Button {
@@ -120,11 +141,11 @@ struct PlanView: View {
             } label: {
                 Image(systemName: "arrow.up.arrow.down")
                     .font(.system(size: 14, weight: .semibold))
-                    .foregroundStyle(Color.appText)
+                    .foregroundStyle(Color.cfTextPrimary)
                     .frame(width: 36, height: 36)
                     .background(Color.appSurface)
                     .clipShape(Circle())
-                    .overlay(Circle().stroke(Color.appBorder, lineWidth: 0.5))
+                    .overlay(Circle().stroke(Color.cfHairline, lineWidth: 0.5))
                     .shadow(color: Color.black.opacity(0.06), radius: 4, x: 0, y: 1)
             }
             .buttonStyle(CardButtonStyle(pressedScale: 0.9))
@@ -155,6 +176,7 @@ struct PlanView: View {
         leading: AnyView,
         label: String,
         value: String,
+        placeholder: String,
         isPlaceholder: Bool,
         onTap: @escaping () -> Void
     ) -> some View {
@@ -165,10 +187,10 @@ struct PlanView: View {
                 VStack(alignment: .leading, spacing: 1) {
                     Text(label)
                         .font(.appMicro)
-                        .foregroundStyle(Color.appText3)
-                    Text(value)
+                        .foregroundStyle(Color.cfTextTertiary)
+                    Text(isPlaceholder ? placeholder : value)
                         .font(.appBodyMedium)
-                        .foregroundStyle(isPlaceholder ? Color.appText2 : Color.appText)
+                        .foregroundStyle(isPlaceholder ? Color.cfTextTertiary : Color.cfTextPrimary)
                         .lineLimit(1)
                         .truncationMode(.tail)
                 }
@@ -180,6 +202,59 @@ struct PlanView: View {
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
+    }
+
+    /// "Clear all" link — only visible when at least one field is populated.
+    /// Animates in with a small slide as the user fills the planner.
+    private var clearAllButton: some View {
+        HStack {
+            Spacer()
+            Button {
+                viewModel.clear()
+            } label: {
+                HStack(spacing: 4) {
+                    Image(systemName: "xmark.circle.fill")
+                        .font(.system(size: 11, weight: .semibold))
+                    Text("Clear all")
+                        .font(.appLabelMedium)
+                }
+                .foregroundStyle(Color.cfTextSecondary)
+                .padding(.vertical, 4)
+                .padding(.horizontal, 10)
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(CardButtonStyle(pressedScale: 0.92))
+            .sensoryFeedback(.impact(weight: .light), trigger: viewModel.hasAnyValue)
+        }
+    }
+
+    private var emptyState: some View {
+        VStack(spacing: 12) {
+            Image(systemName: "point.topleft.down.curvedto.point.bottomright.up")
+                .font(.system(size: 36, weight: .light))
+                .foregroundStyle(Color.cfTextMuted)
+            Text("Where would you like to go?")
+                .font(.appBodyMedium)
+                .foregroundStyle(Color.cfTextSecondary)
+            Text("Tap **To** above to pick a destination, or jump straight to a saved place.")
+                .font(.appCaption)
+                .foregroundStyle(Color.cfTextTertiary)
+                .multilineTextAlignment(.center)
+                .padding(.horizontal, 40)
+            Button {
+                editingField = .to
+            } label: {
+                Text("Choose destination")
+                    .font(.appLabelMedium)
+                    .foregroundStyle(.white)
+                    .padding(.horizontal, 18)
+                    .padding(.vertical, 10)
+                    .background(Color.appInfo, in: Capsule())
+            }
+            .buttonStyle(CardButtonStyle(pressedScale: 0.95))
+            .padding(.top, 4)
+        }
+        .frame(maxWidth: .infinity)
     }
 
     // MARK: - Time pill
@@ -215,12 +290,12 @@ struct PlanView: View {
                     Image(systemName: "chevron.down")
                         .font(.system(size: 10, weight: .semibold))
                 }
-                .foregroundStyle(Color.appText)
+                .foregroundStyle(Color.cfTextPrimary)
                 .padding(.vertical, 7)
                 .padding(.horizontal, 12)
                 .background(Color.appSurface2)
                 .clipShape(Capsule())
-                .overlay(Capsule().stroke(Color.appBorder, lineWidth: 0.5))
+                .overlay(Capsule().stroke(Color.cfHairline, lineWidth: 0.5))
             }
             Spacer()
         }
@@ -325,12 +400,17 @@ struct PlanView: View {
                     ))
                 }
             }
+            // Static info pill — was a `LiveBadge(mode: .demo)` which
+            // showed a perpetual "Connecting…" spinner because the demo
+            // state has no terminal "loaded" condition. Plain info text
+            // is honest: results are estimates, full stop.
             HStack(spacing: 6) {
-                LiveBadge(mode: .demo)
-                Text("Plan results aren't covered by LTA's public API yet.")
+                Image(systemName: "info.circle.fill")
+                    .font(.system(size: 10, weight: .medium))
+                Text("Estimated routes — LTA's public API doesn't include journey planning yet.")
                     .font(.appMicro)
-                    .foregroundStyle(Color.appText3)
             }
+            .foregroundStyle(Color.cfTextTertiary)
             .padding(.top, 4)
         }
         .animation(.smooth(duration: 0.25), value: viewModel.filter)

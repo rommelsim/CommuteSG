@@ -34,7 +34,7 @@ struct JourneyDetailView: View {
                     value: fromText
                 )
                 Divider()
-                    .background(Color.appBorder)
+                    .background(Color.cfHairline)
                     .padding(.leading, 22)
                 endpointRow(
                     leading: AnyView(
@@ -47,7 +47,7 @@ struct JourneyDetailView: View {
                 )
             }
 
-            Divider().background(Color.appBorder)
+            Divider().background(Color.cfHairline)
 
             HStack(spacing: 14) {
                 summaryStat(
@@ -73,7 +73,7 @@ struct JourneyDetailView: View {
         .background(Color.appSurface2)
         .overlay(
             RoundedRectangle(cornerRadius: Radius.large, style: .continuous)
-                .stroke(Color.appBorder, lineWidth: 0.5)
+                .stroke(Color.cfHairline, lineWidth: 0.5)
         )
         .clipShape(RoundedRectangle(cornerRadius: Radius.large, style: .continuous))
     }
@@ -84,10 +84,10 @@ struct JourneyDetailView: View {
             VStack(alignment: .leading, spacing: 1) {
                 Text(label)
                     .font(.appMicro)
-                    .foregroundStyle(Color.appText3)
+                    .foregroundStyle(Color.cfTextTertiary)
                 Text(value)
                     .font(.appBodyMedium)
-                    .foregroundStyle(Color.appText)
+                    .foregroundStyle(Color.cfTextPrimary)
             }
         }
     }
@@ -96,12 +96,12 @@ struct JourneyDetailView: View {
         VStack(alignment: .leading, spacing: 2) {
             Text(label)
                 .font(.appMicro)
-                .foregroundStyle(Color.appText3)
+                .foregroundStyle(Color.cfTextTertiary)
                 .textCase(.uppercase)
                 .tracking(0.4)
             Text(value)
                 .font(.appBodyMedium)
-                .foregroundStyle(Color.appText)
+                .foregroundStyle(Color.cfTextPrimary)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
     }
@@ -112,7 +112,7 @@ struct JourneyDetailView: View {
         VStack(alignment: .leading, spacing: 0) {
             Text("Step by step")
                 .font(.appCaptionStrong)
-                .foregroundStyle(Color.appText3)
+                .foregroundStyle(Color.cfTextTertiary)
                 .textCase(.uppercase)
                 .tracking(0.4)
                 .padding(.bottom, 12)
@@ -139,15 +139,15 @@ struct JourneyDetailView: View {
             VStack(alignment: .leading, spacing: 4) {
                 Text(stepTitle(seg))
                     .font(.appBodyMedium)
-                    .foregroundStyle(Color.appText)
+                    .foregroundStyle(Color.cfTextPrimary)
                 if let subtitle = stepSubtitle(seg, isFirst: isFirst, isLast: isLast) {
                     Text(subtitle)
                         .font(.appCaption)
-                        .foregroundStyle(Color.appText2)
+                        .foregroundStyle(Color.cfTextSecondary)
                 }
                 Text("\(seg.minutes) min")
                     .font(.appMicro)
-                    .foregroundStyle(Color.appText3)
+                    .foregroundStyle(Color.cfTextTertiary)
             }
             .padding(.bottom, isLast ? 0 : 20)
             Spacer(minLength: 0)
@@ -160,7 +160,7 @@ struct JourneyDetailView: View {
             indicatorMark(for: seg)
             if !isLast {
                 Rectangle()
-                    .fill(Color.appBorder)
+                    .fill(Color.cfHairline)
                     .frame(width: 2)
                     .frame(maxHeight: .infinity)
             }
@@ -174,11 +174,11 @@ struct JourneyDetailView: View {
         case .walk:
             Image(systemName: "figure.walk")
                 .font(.system(size: 11, weight: .bold))
-                .foregroundStyle(Color.appText2)
+                .foregroundStyle(Color.cfTextSecondary)
                 .frame(width: 24, height: 24)
                 .background(Color.appSurface2)
                 .clipShape(Circle())
-                .overlay(Circle().stroke(Color.appBorder, lineWidth: 0.5))
+                .overlay(Circle().stroke(Color.cfHairline, lineWidth: 0.5))
         case .mrt(let line, _):
             ZStack {
                 Circle().fill(line.background)
@@ -189,7 +189,7 @@ struct JourneyDetailView: View {
             .frame(width: 24, height: 24)
         case .bus:
             ZStack {
-                Circle().fill(Color.appText.opacity(0.85))
+                Circle().fill(Color.cfTextPrimary.opacity(0.85))
                 Image(systemName: "bus.fill")
                     .font(.system(size: 11, weight: .bold))
                     .foregroundStyle(Color.appSurface)

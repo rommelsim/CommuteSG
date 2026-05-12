@@ -18,7 +18,7 @@ struct JourneyOptionCard: View {
             .background(isBest ? Color.appInfoBg : Color.appSurface)
             .overlay(
                 RoundedRectangle(cornerRadius: Radius.card, style: .continuous)
-                    .stroke(isBest ? Color.appInfo : Color.appBorder,
+                    .stroke(isBest ? Color.appInfo : Color.cfHairline,
                             lineWidth: isBest ? 1.25 : 0.5)
             )
             .clipShape(RoundedRectangle(cornerRadius: Radius.card, style: .continuous))
@@ -33,21 +33,21 @@ struct JourneyOptionCard: View {
             HStack(spacing: 6) {
                 Text(timeLabel(departureDate))
                     .font(.appHeading)
-                    .foregroundStyle(Color.appText)
+                    .foregroundStyle(Color.cfTextPrimary)
                     .contentTransition(.numericText())
                     .animation(.snappy, value: departureDate)
                 Image(systemName: "arrow.right")
                     .font(.system(size: 10, weight: .bold))
-                    .foregroundStyle(Color.appText3)
+                    .foregroundStyle(Color.cfTextTertiary)
                 Text(timeLabel(arrivalDate))
                     .font(.appHeading)
-                    .foregroundStyle(Color.appText)
+                    .foregroundStyle(Color.cfTextPrimary)
                     .contentTransition(.numericText())
                     .animation(.snappy, value: arrivalDate)
             }
             Text("· \(option.durationMinutes) min")
                 .font(.appBody)
-                .foregroundStyle(Color.appText2)
+                .foregroundStyle(Color.cfTextSecondary)
                 .contentTransition(.numericText())
                 .animation(.snappy, value: option.durationMinutes)
             Spacer(minLength: 6)
@@ -62,7 +62,7 @@ struct JourneyOptionCard: View {
             }
             Text(String(format: "$%.2f", option.fareSGD))
                 .font(.appBodyMedium)
-                .foregroundStyle(Color.appText)
+                .foregroundStyle(Color.cfTextPrimary)
                 .contentTransition(.numericText())
                 .animation(.snappy, value: option.fareSGD)
         }
@@ -113,7 +113,7 @@ struct JourneyOptionCard: View {
                     .fill(Color.appSurface2)
                 Image(systemName: "figure.walk")
                     .font(.system(size: 10, weight: .semibold))
-                    .foregroundStyle(Color.appText2)
+                    .foregroundStyle(Color.cfTextSecondary)
             }
         case .mrt(let line, _):
             ZStack {
@@ -129,7 +129,7 @@ struct JourneyOptionCard: View {
         case .bus(let no, _):
             ZStack {
                 RoundedRectangle(cornerRadius: 4, style: .continuous)
-                    .fill(Color.appText.opacity(0.85))
+                    .fill(Color.cfTextPrimary.opacity(0.85))
                 HStack(spacing: 3) {
                     Image(systemName: "bus.fill")
                         .font(.system(size: 9, weight: .semibold))
@@ -185,10 +185,10 @@ struct JourneyOptionCard: View {
         HStack(spacing: 4) {
             Image(systemName: symbol)
                 .font(.system(size: 11, weight: .medium))
-                .foregroundStyle(Color.appText2)
+                .foregroundStyle(Color.cfTextSecondary)
             Text(text)
                 .font(.appCaption)
-                .foregroundStyle(Color.appText2)
+                .foregroundStyle(Color.cfTextSecondary)
                 .contentTransition(.numericText())
                 .animation(.snappy, value: text)
         }

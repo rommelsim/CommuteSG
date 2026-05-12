@@ -54,10 +54,10 @@ struct FaresView: View {
             Text("Fare calculator")
                 .font(.appTitle)
                 .tracking(-0.5)
-                .foregroundStyle(Color.appText)
+                .foregroundStyle(Color.cfTextPrimary)
             Text("Official PTC fares · effective \(viewModel.effectiveDate)")
                 .font(.appLabel)
-                .foregroundStyle(Color.appText2)
+                .foregroundStyle(Color.cfTextSecondary)
         }
         .padding(.horizontal, Spacing.screen)
         .padding(.top, 10)
@@ -94,10 +94,10 @@ struct FaresView: View {
             }
             .padding(.vertical, 9)
             .padding(.horizontal, 14)
-            .background(isActive ? Color.appText : Color.appSurface)
-            .foregroundStyle(isActive ? Color.appSurface : Color.appText)
+            .background(isActive ? Color.cfTextPrimary : Color.appSurface)
+            .foregroundStyle(isActive ? Color.appSurface : Color.cfTextPrimary)
             .overlay(
-                Capsule().stroke(isActive ? Color.clear : Color.appBorderStrong, lineWidth: 0.5)
+                Capsule().stroke(isActive ? Color.clear : Color.cfHairlineStrong, lineWidth: 0.5)
             )
             .clipShape(Capsule())
         }
@@ -115,7 +115,7 @@ struct FaresView: View {
                 Spacer()
                 Text(viewModel.distanceLabel)
                     .font(.appLabelStrong)
-                    .foregroundStyle(viewModel.hasBothEndpoints ? Color.appText : Color.appText3)
+                    .foregroundStyle(viewModel.hasBothEndpoints ? Color.cfTextPrimary : Color.cfTextTertiary)
                     .padding(.horizontal, Spacing.screen)
                     .contentTransition(.numericText())
             }
@@ -129,7 +129,7 @@ struct FaresView: View {
                         pickingField = .from
                     }
                     Divider()
-                        .background(Color.appBorder)
+                        .background(Color.cfHairline)
                         .padding(.leading, 44)
                     endpointRow(
                         leading: AnyView(
@@ -147,7 +147,7 @@ struct FaresView: View {
                 .clipShape(RoundedRectangle(cornerRadius: Radius.large, style: .continuous))
                 .overlay(
                     RoundedRectangle(cornerRadius: Radius.large, style: .continuous)
-                        .stroke(Color.appBorder, lineWidth: 0.5)
+                        .stroke(Color.cfHairline, lineWidth: 0.5)
                 )
 
                 Button {
@@ -155,11 +155,11 @@ struct FaresView: View {
                 } label: {
                     Image(systemName: "arrow.up.arrow.down")
                         .font(.system(size: 14, weight: .semibold))
-                        .foregroundStyle(Color.appText)
+                        .foregroundStyle(Color.cfTextPrimary)
                         .frame(width: 36, height: 36)
                         .background(Color.appSurface)
                         .clipShape(Circle())
-                        .overlay(Circle().stroke(Color.appBorder, lineWidth: 0.5))
+                        .overlay(Circle().stroke(Color.cfHairline, lineWidth: 0.5))
                         .shadow(color: Color.black.opacity(0.06), radius: 4, x: 0, y: 1)
                 }
                 .buttonStyle(.plain)
@@ -183,16 +183,16 @@ struct FaresView: View {
                 VStack(alignment: .leading, spacing: 1) {
                     Text(label)
                         .font(.appMicro)
-                        .foregroundStyle(Color.appText3)
+                        .foregroundStyle(Color.cfTextTertiary)
                     Text(endpoint?.label ?? "Pick a station or stop")
                         .font(.appBodyMedium)
-                        .foregroundStyle(endpoint == nil ? Color.appText2 : Color.appText)
+                        .foregroundStyle(endpoint == nil ? Color.cfTextSecondary : Color.cfTextPrimary)
                         .lineLimit(1)
                         .truncationMode(.tail)
                     if let secondary = endpoint?.secondary {
                         Text(secondary)
                             .font(.appCaption)
-                            .foregroundStyle(Color.appText3)
+                            .foregroundStyle(Color.cfTextTertiary)
                             .lineLimit(1)
                     }
                 }
@@ -243,7 +243,7 @@ struct FaresView: View {
             if !vm.mode.acceptsCash {
                 Text("MRT/LRT is card-only.")
                     .font(.appMicro)
-                    .foregroundStyle(Color.appText3)
+                    .foregroundStyle(Color.cfTextTertiary)
                     .padding(.horizontal, Spacing.screen)
             }
         }
@@ -259,10 +259,10 @@ struct FaresView: View {
                 VStack(alignment: .leading, spacing: 2) {
                     Text("Tap in before 7:45 am (weekdays)")
                         .font(.appBodyMedium)
-                        .foregroundStyle(Color.appText)
+                        .foregroundStyle(Color.cfTextPrimary)
                     Text("Lower fare on MRT/LRT, excluding public holidays.")
                         .font(.appCaption)
-                        .foregroundStyle(Color.appText2)
+                        .foregroundStyle(Color.cfTextSecondary)
                 }
             }
             .tint(Color.appSuccess)
@@ -332,25 +332,25 @@ struct FaresView: View {
         .background(Color.appSurface)
         .overlay(
             RoundedRectangle(cornerRadius: Radius.card, style: .continuous)
-                .stroke(Color.appBorder, lineWidth: 0.5)
+                .stroke(Color.cfHairline, lineWidth: 0.5)
         )
         .clipShape(RoundedRectangle(cornerRadius: Radius.card, style: .continuous))
         .padding(.horizontal, Spacing.screen)
     }
 
     private var divider: some View {
-        Divider().background(Color.appBorder).padding(.vertical, 6)
+        Divider().background(Color.cfHairline).padding(.vertical, 6)
     }
 
     private func row(key: String, value: String, bold: Bool = false, valueColor: Color? = nil) -> some View {
         HStack {
             Text(key)
                 .font(bold ? .appLabelStrong : .appLabel)
-                .foregroundStyle(bold ? Color.appText : Color.appText2)
+                .foregroundStyle(bold ? Color.cfTextPrimary : Color.cfTextSecondary)
             Spacer()
             Text(value)
                 .font(bold ? .appLabelStrong : .appLabelMedium)
-                .foregroundStyle(valueColor ?? (bold ? Color.appText : Color.appText))
+                .foregroundStyle(valueColor ?? (bold ? Color.cfTextPrimary : Color.cfTextPrimary))
                 .contentTransition(.numericText())
         }
         .padding(.vertical, 6)
@@ -419,7 +419,7 @@ struct FaresView: View {
             Text("Source: PTC fare tables on data.gov.sg")
                 .font(.appMicro)
         }
-        .foregroundStyle(Color.appText3)
+        .foregroundStyle(Color.cfTextTertiary)
         .padding(.horizontal, Spacing.screen)
         .padding(.top, 2)
     }
@@ -429,7 +429,7 @@ struct FaresView: View {
     private func sectionLabel(_ title: String) -> some View {
         Text(title)
             .font(.appCaptionStrong)
-            .foregroundStyle(Color.appText3)
+            .foregroundStyle(Color.cfTextTertiary)
             .textCase(.uppercase)
             .tracking(0.5)
             .padding(.horizontal, Spacing.screen)
@@ -446,10 +446,10 @@ struct FaresView: View {
                 .font(.appLabelMedium)
                 .padding(.vertical, 8)
                 .padding(.horizontal, 14)
-                .background(isActive ? Color.appText : Color.appSurface)
-                .foregroundStyle(disabled ? Color.appText3 : (isActive ? Color.appSurface : Color.appText))
+                .background(isActive ? Color.cfTextPrimary : Color.appSurface)
+                .foregroundStyle(disabled ? Color.cfTextTertiary : (isActive ? Color.appSurface : Color.cfTextPrimary))
                 .overlay(
-                    Capsule().stroke(isActive ? Color.clear : Color.appBorderStrong, lineWidth: 0.5)
+                    Capsule().stroke(isActive ? Color.clear : Color.cfHairlineStrong, lineWidth: 0.5)
                 )
                 .clipShape(Capsule())
                 .opacity(disabled ? 0.5 : 1)

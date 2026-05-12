@@ -17,7 +17,7 @@ struct CommuteApp: App {
                         .transition(.opacity)
                 } else {
                     SplashView(
-                        load: { await coldStartPrefetch() },
+                        load: { report in await coldStartPrefetch(report: report) },
                         onComplete: {
                             withAnimation(.easeInOut(duration: 0.3)) {
                                 hasShownSplash = true
@@ -32,12 +32,21 @@ struct CommuteApp: App {
 
     /// Cold-launch prefetch — warms the bus-stops dataset so
     /// `HomeViewModel.load()` finds a hot cache the first time it asks.
-    /// Errors are swallowed; Home will retry on appear if this misses.
-    private func coldStartPrefetch() async {
+    /// Splash status text stays friendly and non-technical: the user
+    /// doesn't need to know about LTA, DataMall, caches, or row counts.
+    /// The traveling-dot animation in `SplashView` is the real progress
+    /// indicator; the status label is just a gentle reassurance, so it
+    /// only swaps once (mid-load → late-load) rather than chattering.
+    private func coldStartPrefetch(
+        report: @escaping @MainActor (String) -> Void
+    ) async {
+        await report("Loading nearby transit…")
         do {
             for try await _ in BusStopsRepository.shared.loadAllStops() { }
         } catch {
-            // Intentional no-op — Home re-runs the same call on appear.
+            // Silent — Home will retry on appear, and the splash shouldn't
+            // surface backend faults to the user.
         }
+        await report("Almost there…")
     }
 }

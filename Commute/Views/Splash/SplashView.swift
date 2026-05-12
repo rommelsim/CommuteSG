@@ -15,22 +15,21 @@ import SwiftUI
 // icon background) so there's no color flash before this view appears.
 
 struct SplashView: View {
-    /// Async work to perform while the splash is on-screen
-    /// (e.g. fetching MRT + bus arrivals from LTA DataMall).
-    let load: () async -> Void
+    /// Async work to perform while the splash is on-screen. Gets a `report`
+    /// callback the loader is expected to call at each step (e.g.
+    /// "Loaded 4,200 bus stops") so the on-screen status reflects what's
+    /// actually happening, not a hardcoded marquee.
+    let load: (@escaping @MainActor (String) -> Void) async -> Void
 
     /// Called once the load completes and the fade-out finishes.
     let onComplete: () -> Void
 
     @State private var dotProgress: CGFloat = 0
-    @State private var statusIndex: Int = 0
+    /// Default matches the first message the loader sends so users don't
+    /// see a brief technical-feeling "Starting up…" before the friendly
+    /// "Loading nearby transit…" appears.
+    @State private var currentStatus: String = "Loading nearby transit…"
     @State private var isVisible: Bool = true
-
-    private let statusMessages = [
-        "Fetching MRT arrivals…",
-        "Loading bus stops…",
-        "Almost there…"
-    ]
 
     private let routeWidth: CGFloat = 180
     private let routeHeight: CGFloat = 40
@@ -52,12 +51,13 @@ struct SplashView: View {
                 routeAnimation
                     .frame(width: routeWidth, height: routeHeight)
 
-                // Status label, rotates as data loads
-                Text(statusMessages[statusIndex])
+                // Status label — driven by the loader's `report` callback so
+                // the text always matches what's currently being fetched.
+                Text(currentStatus)
                     .font(.system(size: 13))
                     .foregroundStyle(.secondary)
                     .padding(.top, 14)
-                    .id(statusIndex)                              // forces transition
+                    .id(currentStatus)                              // forces transition
                     .transition(.opacity.animation(.easeInOut(duration: 0.25)))
             }
         }
@@ -81,30 +81,22 @@ struct SplashView: View {
                 dotProgress = 1
             }
 
-            // 2. Cycle status text. Paced to ~half the dot round-trip so all
-            //    three messages get a chance to show across the minimum window.
-            let statusTask = Task {
-                while !Task.isCancelled {
-                    try? await Task.sleep(for: .milliseconds(1500))
-                    if Task.isCancelled { break }
-                    withAnimation {
-                        statusIndex = (statusIndex + 1) % statusMessages.count
-                    }
+            // 2. Run the actual data load. Each `report` call animates a
+            //    crossfade on the status label.
+            await load { @MainActor msg in
+                withAnimation(.easeInOut(duration: 0.25)) {
+                    currentStatus = msg
                 }
             }
 
-            // 3. Run the actual data load.
-            await load()
-            statusTask.cancel()
-
-            // 4. Hold the splash up to the minimum visible window so the dot
+            // 3. Hold the splash up to the minimum visible window so the dot
             //    animation completes its first round trip before fade-out.
             let elapsed = ContinuousClock.now - start
             if elapsed < minimumVisible {
                 try? await Task.sleep(for: minimumVisible - elapsed)
             }
 
-            // 5. Fade out, then hand off to the main app.
+            // 4. Fade out, then hand off to the main app.
             withAnimation(.easeInOut(duration: 0.35)) { isVisible = false }
             try? await Task.sleep(for: .milliseconds(350))
             onComplete()
@@ -161,7 +153,13 @@ struct SplashView: View {
 
 #Preview {
     SplashView(
-        load: { try? await Task.sleep(for: .seconds(3)) },
+        load: { report in
+            await MainActor.run { report("Connecting to LTA DataMall…") }
+            try? await Task.sleep(for: .seconds(1))
+            await MainActor.run { report("Loading Singapore bus stops…") }
+            try? await Task.sleep(for: .seconds(1))
+            await MainActor.run { report("Loaded 5,243 bus stops") }
+        },
         onComplete: { print("Splash finished") }
     )
 }

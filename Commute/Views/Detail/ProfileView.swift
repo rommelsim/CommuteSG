@@ -11,6 +11,7 @@ struct ProfileView: View {
     @State private var showingNameEditor = false
     @State private var editingPlace: SavedPlace.Kind?
     @State private var showingMailUnavailable = false
+    @State private var showingFavourites = false
 
     var body: some View {
         VStack(spacing: 0) {
@@ -56,6 +57,12 @@ struct ProfileView: View {
                 .environment(appState)
                 .presentationDetents([.height(260)])
         }
+        .sheet(isPresented: $showingFavourites) {
+            FavouritesSheet()
+                .environment(appState)
+                .presentationDetents([.medium, .large])
+                .presentationDragIndicator(.visible)
+        }
     }
 
     private var userCard: some View {
@@ -80,6 +87,11 @@ struct ProfileView: View {
                     .font(.system(size: 14, weight: .semibold))
                     .foregroundStyle(Color.cfTextTertiary)
             }
+            // `.frame(maxWidth: .infinity)` BEFORE the background — without
+            // it the HStack collapses to its intrinsic content size and the
+            // background only paints under that narrow span, leaving the
+            // card visually unfilled across the available width.
+            .frame(maxWidth: .infinity, alignment: .leading)
             .padding(16)
             .background(Color.appSurface2)
             .clipShape(RoundedRectangle(cornerRadius: Radius.card, style: .continuous))
@@ -120,11 +132,15 @@ struct ProfileView: View {
             }
             .buttonStyle(.plain)
 
-            ListRow(
-                symbol: "star.fill", symbolTint: Color.appAmber,
-                label: "Favourite stops & lines",
-                value: "\(appState.favoriteBusStopCodes.count + appState.favoriteLineCodes.count)"
-            )
+            Button { showingFavourites = true } label: {
+                ListRow(
+                    symbol: "star.fill", symbolTint: Color.appAmber,
+                    label: "Favourite stops & lines",
+                    value: "\(appState.favoriteBusStopCodes.count + appState.favoriteLineCodes.count)",
+                    chevron: true
+                )
+            }
+            .buttonStyle(.plain)
         }
         .padding(.horizontal, Spacing.screen)
     }
@@ -186,9 +202,25 @@ struct ProfileView: View {
                 Text("Add a mail account in Settings, or email \(bugReportRecipient) from another device.")
             }
 
-            ListRow(symbol: "info.circle.fill", symbolTint: Color.cfTextSecondary, label: "App version", value: "1.0")
+            ListRow(
+                symbol: "info.circle.fill",
+                symbolTint: Color.cfTextSecondary,
+                label: "App version",
+                value: Self.appVersionLabel
+            )
         }
         .padding(.horizontal, Spacing.screen)
+    }
+
+    /// Read the live marketing version + build number from `Info.plist`.
+    /// `CFBundleShortVersionString` is what Xcode's General → Version field
+    /// writes (e.g. "1.0.2"); `CFBundleVersion` is the Build field (e.g. "1").
+    /// Combined for display so testers can see exactly which build they're on.
+    private static var appVersionLabel: String {
+        let info = Bundle.main.infoDictionary
+        let v = (info?["CFBundleShortVersionString"] as? String) ?? "—"
+        let b = (info?["CFBundleVersion"] as? String) ?? "—"
+        return "\(v) (\(b))"
     }
 
     /// Compose a `mailto:` URL with diagnostic info pre-filled so the user
@@ -248,7 +280,7 @@ private struct NameEditorSheet: View {
     @FocusState private var isFocused: Bool
 
     var body: some View {
-        VStack(spacing: 16) {
+        VStack(alignment: .leading, spacing: 16) {
             Text("Your name")
                 .font(.appSubTitle)
                 .frame(maxWidth: .infinity, alignment: .leading)
@@ -270,8 +302,15 @@ private struct NameEditorSheet: View {
                     .buttonStyle(.borderedProminent)
                     .tint(Color.appInfo)
             }
+            Spacer(minLength: 0)
         }
         .padding(20)
+        // `.frame(maxWidth: .infinity, maxHeight: .infinity)` BEFORE the
+        // background so the surface paints across the full sheet area —
+        // without this the VStack collapses to its intrinsic content size
+        // and the unfilled bottom strip shows through to the dimmed
+        // backdrop. Same fix pattern as PlaceEditorSheet.
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         .background(Color.appSurface)
         .onAppear {
             draft = appState.userName

@@ -5,6 +5,16 @@ struct AlertsView: View {
     /// live disruption count without us needing a separate copy.
     let viewModel: AlertsViewModel
 
+    /// Line the user tapped — drives the detail sheet.
+    @State private var selectedLine: SelectedLine?
+
+    /// Identifiable wrapper so `.sheet(item:)` works.
+    private struct SelectedLine: Identifiable {
+        let line: MRTLine
+        let disruption: AlertsViewModel.LineDisruption?
+        var id: String { line.code }
+    }
+
     var body: some View {
         NavigationStack {
             ScrollView {
@@ -26,6 +36,11 @@ struct AlertsView: View {
             .background(Color.appSurface)
             .refreshable { await viewModel.refresh(force: true) }
             .task { await viewModel.refresh() }
+            .sheet(item: $selectedLine) { selected in
+                LineStatusDetailSheet(line: selected.line, disruption: selected.disruption)
+                    .presentationDetents([.medium, .large])
+                    .presentationDragIndicator(.visible)
+            }
         }
     }
 
@@ -34,15 +49,17 @@ struct AlertsView: View {
     private var header: some View {
         HStack {
             VStack(alignment: .leading, spacing: 2) {
-                Text("MRT alerts")
+                // Title scoped to MRT — the data source (LTA's
+                // TrainServiceAlerts endpoint) only covers train lines, so
+                // saying "Alerts" alone misleads users into expecting bus
+                // disruptions too. "Train service" makes the scope explicit.
+                Text("Train service")
                     .font(.appTitle)
                     .tracking(-0.5)
-                    .foregroundStyle(Color.appText)
-                if let updated = viewModel.lastUpdated {
-                    Text("Updated \(Self.timeFormatter.string(from: updated))")
-                        .font(.appMicro)
-                        .foregroundStyle(Color.appText3)
-                }
+                    .foregroundStyle(Color.cfTextPrimary)
+                Text(headerSubtitle)
+                    .font(.appMicro)
+                    .foregroundStyle(Color.cfTextTertiary)
             }
             Spacer()
             LiveBadge(
@@ -52,6 +69,13 @@ struct AlertsView: View {
         }
         .padding(.top, 10)
         .padding(.horizontal, Spacing.screen)
+    }
+
+    private var headerSubtitle: String {
+        if let updated = viewModel.lastUpdated {
+            return "MRT line status · updated \(Self.timeFormatter.string(from: updated))"
+        }
+        return "MRT line status"
     }
 
     // MARK: - Line status grid
@@ -67,13 +91,16 @@ struct AlertsView: View {
             } else {
                 VStack(spacing: 0) {
                     ForEach(Array(viewModel.orderedLines.enumerated()), id: \.offset) { idx, line in
-                        LineStatusRow(
-                            line: line,
-                            disruption: viewModel.disruptions.first { $0.line == line }
-                        )
+                        let dis = viewModel.disruptions.first { $0.line == line }
+                        Button {
+                            selectedLine = SelectedLine(line: line, disruption: dis)
+                        } label: {
+                            LineStatusRow(line: line, disruption: dis)
+                        }
+                        .buttonStyle(CardButtonStyle(pressedScale: 0.985))
                         if idx != viewModel.orderedLines.count - 1 {
                             Divider()
-                                .background(Color.appBorder)
+                                .background(Color.cfHairline)
                                 .padding(.leading, 60)
                         }
                     }
@@ -82,7 +109,7 @@ struct AlertsView: View {
                 .clipShape(RoundedRectangle(cornerRadius: Radius.card, style: .continuous))
                 .overlay(
                     RoundedRectangle(cornerRadius: Radius.card, style: .continuous)
-                        .stroke(Color.appBorder, lineWidth: 0.5)
+                        .stroke(Color.cfHairline, lineWidth: 0.5)
                 )
                 .padding(.horizontal, Spacing.screen)
             }
@@ -132,7 +159,7 @@ struct AlertsView: View {
     private func sectionLabel(_ title: String) -> some View {
         Text(title)
             .font(.appCaptionStrong)
-            .foregroundStyle(Color.appText3)
+            .foregroundStyle(Color.cfTextTertiary)
             .textCase(.uppercase)
             .tracking(0.5)
             .padding(.horizontal, Spacing.screen)
@@ -145,7 +172,7 @@ struct AlertsView: View {
             Text("Source: LTA DataMall · TrainServiceAlerts")
                 .font(.appMicro)
         }
-        .foregroundStyle(Color.appText3)
+        .foregroundStyle(Color.cfTextTertiary)
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(.horizontal, Spacing.screen)
         .padding(.top, 4)
@@ -168,21 +195,28 @@ private struct LineStatusRow: View {
     private var isDisrupted: Bool { disruption != nil }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            HStack(spacing: 12) {
-                LineBadge(line: line, code: nil, emphasized: false)
+        HStack(spacing: 12) {
+            LineBadge(line: line, code: nil, emphasized: false)
+            VStack(alignment: .leading, spacing: 2) {
                 Text(line.fullName)
                     .font(.appBodyMedium)
-                    .foregroundStyle(Color.appText)
-                Spacer()
-                statusPill
+                    .foregroundStyle(Color.cfTextPrimary)
+                if let stations = disruption?.stations, !stations.isEmpty {
+                    Text("Affected: \(stations)")
+                        .font(.appMicro)
+                        .foregroundStyle(Color.cfTextTertiary)
+                        .lineLimit(1)
+                }
             }
-            if let disruption {
-                disruptionDetail(disruption)
-            }
+            Spacer()
+            statusPill
+            Image(systemName: "chevron.right")
+                .font(.system(size: 11, weight: .semibold))
+                .foregroundStyle(Color.cfTextMuted)
         }
         .padding(.vertical, 12)
         .padding(.horizontal, 14)
+        .contentShape(Rectangle())
     }
 
     private var statusPill: some View {
@@ -197,25 +231,134 @@ private struct LineStatusRow: View {
         .foregroundStyle(isDisrupted ? Color.appDanger : Color.appSuccess)
         .animation(.snappy, value: isDisrupted)
     }
+}
 
-    private func disruptionDetail(_ d: AlertsViewModel.LineDisruption) -> some View {
-        VStack(alignment: .leading, spacing: 4) {
-            if !d.stations.isEmpty {
-                Text("Affected: \(d.stations)")
+// MARK: - Line status detail sheet
+// Tapping any line row presents this. For disrupted lines it shows the
+// affected stations + alternative transport (free bus / shuttle). For
+// normal lines it confirms "All clear" so the tap isn't a dead-end.
+
+private struct LineStatusDetailSheet: View {
+    let line: MRTLine
+    let disruption: AlertsViewModel.LineDisruption?
+    @Environment(\.dismiss) private var dismiss
+
+    private var isDisrupted: Bool { disruption != nil }
+
+    var body: some View {
+        NavigationStack {
+            ScrollView {
+                VStack(alignment: .leading, spacing: 18) {
+                    headerCard
+                    if let disruption {
+                        disruptionDetailCard(disruption)
+                    } else {
+                        allClearCard
+                    }
+                    Spacer(minLength: 12)
+                }
+                .padding(.horizontal, Spacing.screen)
+                .padding(.top, 16)
+            }
+            .background(Color.appSurface)
+            .toolbar {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button("Done") { dismiss() }
+                        .fontWeight(.semibold)
+                        .foregroundStyle(Color.appInfo)
+                }
+            }
+            .navigationBarTitleDisplayMode(.inline)
+        }
+    }
+
+    private var headerCard: some View {
+        HStack(spacing: 14) {
+            LineBadge(line: line, code: nil, emphasized: true)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(line.fullName)
+                    .font(.appSubTitle)
+                    .foregroundStyle(Color.cfTextPrimary)
+                Text(isDisrupted ? "Service disruption in effect" : "Normal service")
                     .font(.appCaption)
-                    .foregroundStyle(Color.appDangerStrong)
+                    .foregroundStyle(isDisrupted ? Color.appDangerStrong : Color.appSuccessStrong)
+            }
+            Spacer()
+        }
+    }
+
+    private var allClearCard: some View {
+        HStack(spacing: 12) {
+            Image(systemName: "checkmark.circle.fill")
+                .font(.system(size: 22, weight: .semibold))
+                .foregroundStyle(Color.appSuccess)
+            VStack(alignment: .leading, spacing: 2) {
+                Text("All stations operating normally")
+                    .font(.appBodyMedium)
+                    .foregroundStyle(Color.appSuccessStrong)
+                Text("No active disruptions reported by LTA on this line.")
+                    .font(.appCaption)
+                    .foregroundStyle(Color.appSuccessStrong.opacity(0.85))
+            }
+            Spacer()
+        }
+        .padding(Spacing.cardInner)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(Color.appSuccessBg)
+        .clipShape(RoundedRectangle(cornerRadius: Radius.card, style: .continuous))
+    }
+
+    private func disruptionDetailCard(_ d: AlertsViewModel.LineDisruption) -> some View {
+        VStack(alignment: .leading, spacing: 14) {
+            if !d.stations.isEmpty {
+                detailRow(
+                    icon: "exclamationmark.triangle.fill",
+                    iconColor: Color.appDanger,
+                    label: "Affected stations",
+                    value: d.stations
+                )
             }
             if let bus = d.freePublicBus {
-                Text("Free bus boarding at: \(bus)")
-                    .font(.appCaption)
-                    .foregroundStyle(Color.appText2)
+                detailRow(
+                    icon: "bus.fill",
+                    iconColor: Color.appInfo,
+                    label: "Free public bus",
+                    value: bus
+                )
             }
             if let shuttle = d.freeMRTShuttle {
-                Text("Free shuttle: \(shuttle)")
-                    .font(.appCaption)
-                    .foregroundStyle(Color.appText2)
+                detailRow(
+                    icon: "tram.fill",
+                    iconColor: Color.appInfo,
+                    label: "Free MRT shuttle",
+                    value: shuttle
+                )
             }
         }
-        .padding(.leading, 44)
+        .padding(Spacing.cardInner)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(Color.appDangerBg)
+        .clipShape(RoundedRectangle(cornerRadius: Radius.card, style: .continuous))
+    }
+
+    private func detailRow(icon: String, iconColor: Color, label: String, value: String) -> some View {
+        HStack(alignment: .top, spacing: 12) {
+            Image(systemName: icon)
+                .font(.system(size: 14, weight: .semibold))
+                .foregroundStyle(iconColor)
+                .frame(width: 22)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(label)
+                    .font(.appMicroStrong)
+                    .textCase(.uppercase)
+                    .tracking(0.4)
+                    .foregroundStyle(Color.cfTextTertiary)
+                Text(value)
+                    .font(.appBodyMedium)
+                    .foregroundStyle(Color.cfTextPrimary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            Spacer()
+        }
     }
 }

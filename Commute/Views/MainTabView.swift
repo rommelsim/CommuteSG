@@ -35,9 +35,11 @@ struct MainTabView: View {
     var body: some View {
         // iOS 26 renders the standard `TabView` as a floating Liquid Glass
         // capsule automatically — selected tab gets a filled inner pill and
-        // the bar floats over content. No explicit glass modifier is needed
-        // (or supported) on the legacy `.tabItem` API used here for iOS 17
-        // compatibility.
+        // the bar floats over content. The custom container we tried earlier
+        // (sliding cross-tab transitions) produced inconsistent direction
+        // perception (Home→Alerts went right, Alerts→Plan went left, etc.)
+        // and broke the native glass look. The native chrome is the right
+        // call here; Apple's transition is intentionally instant.
         TabView(selection: $selection) {
             HomeView(selectedTab: $selection)
                 .tabItem { Label(MainTab.home.label, systemImage: MainTab.home.symbol) }

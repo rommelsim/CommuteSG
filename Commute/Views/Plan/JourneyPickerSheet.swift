@@ -49,7 +49,7 @@ struct JourneyPickerSheet: View {
                     .padding(.horizontal, Spacing.screen)
                     .padding(.top, 12)
                     .padding(.bottom, 12)
-                Divider().background(Color.appBorder)
+                Divider().background(Color.cfHairline)
                 content
             }
             .background(Color.appSurface)
@@ -126,7 +126,7 @@ struct JourneyPickerSheet: View {
 
                 Text("Type a station name, road, postal code, or 5-digit stop code to search.")
                     .font(.appCaption)
-                    .foregroundStyle(Color.appText3)
+                    .foregroundStyle(Color.cfTextTertiary)
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .padding(.horizontal, Spacing.screen)
                     .padding(.top, 4)
@@ -196,22 +196,22 @@ struct JourneyPickerSheet: View {
                     HStack(spacing: 12) {
                         Image(systemName: "text.cursor")
                             .font(.system(size: 14, weight: .medium))
-                            .foregroundStyle(Color.appText2)
+                            .foregroundStyle(Color.cfTextSecondary)
                             .frame(width: 32, height: 32)
                             .background(Color.appSurface2)
                             .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
                         VStack(alignment: .leading, spacing: 2) {
                             Text("Use “\(query)”")
                                 .font(.appBodyMedium)
-                                .foregroundStyle(Color.appText)
+                                .foregroundStyle(Color.cfTextPrimary)
                             Text("Set as a free-text address")
                                 .font(.appCaption)
-                                .foregroundStyle(Color.appText2)
+                                .foregroundStyle(Color.cfTextSecondary)
                         }
                         Spacer()
                         Image(systemName: "chevron.right")
                             .font(.system(size: 12, weight: .semibold))
-                            .foregroundStyle(Color.appText3)
+                            .foregroundStyle(Color.cfTextTertiary)
                     }
                     .padding(.horizontal, Spacing.screen)
                     .contentShape(Rectangle())
@@ -229,10 +229,10 @@ struct JourneyPickerSheet: View {
             Spacer().frame(height: 30)
             Image(systemName: "magnifyingglass")
                 .font(.system(size: 28, weight: .light))
-                .foregroundStyle(Color.appText3)
+                .foregroundStyle(Color.cfTextTertiary)
             Text("No matches for “\(query)”")
                 .font(.appBody)
-                .foregroundStyle(Color.appText2)
+                .foregroundStyle(Color.cfTextSecondary)
             Button {
                 pick(query)
             } label: {
@@ -258,20 +258,20 @@ struct JourneyPickerSheet: View {
             VStack(alignment: .leading, spacing: 2) {
                 Text(station.name)
                     .font(.appBodyMedium)
-                    .foregroundStyle(Color.appText)
+                    .foregroundStyle(Color.cfTextPrimary)
                 Text(station.line.fullName)
                     .font(.appCaption)
-                    .foregroundStyle(Color.appText2)
+                    .foregroundStyle(Color.cfTextSecondary)
             }
             Spacer()
             if let m = station.distanceMeters {
                 Text(distanceLabel(m))
                     .font(.appMicro)
-                    .foregroundStyle(Color.appText3)
+                    .foregroundStyle(Color.cfTextTertiary)
             }
             Image(systemName: "chevron.right")
                 .font(.system(size: 12, weight: .semibold))
-                .foregroundStyle(Color.appText3)
+                .foregroundStyle(Color.cfTextTertiary)
         }
         .padding(.vertical, 10)
         .padding(.horizontal, Spacing.screen)
@@ -289,19 +289,19 @@ struct JourneyPickerSheet: View {
             VStack(alignment: .leading, spacing: 2) {
                 Text(addr.title)
                     .font(.appBodyMedium)
-                    .foregroundStyle(Color.appText)
+                    .foregroundStyle(Color.cfTextPrimary)
                     .lineLimit(1)
                 if !addr.subtitle.isEmpty {
                     Text(addr.subtitle)
                         .font(.appCaption)
-                        .foregroundStyle(Color.appText2)
+                        .foregroundStyle(Color.cfTextSecondary)
                         .lineLimit(1)
                 }
             }
             Spacer()
             Image(systemName: "chevron.right")
                 .font(.system(size: 12, weight: .semibold))
-                .foregroundStyle(Color.appText3)
+                .foregroundStyle(Color.cfTextTertiary)
         }
         .padding(.vertical, 10)
         .padding(.horizontal, Spacing.screen)
@@ -312,28 +312,28 @@ struct JourneyPickerSheet: View {
         HStack(spacing: 12) {
             Image(systemName: "bus.fill")
                 .font(.system(size: 14, weight: .medium))
-                .foregroundStyle(Color.appText2)
+                .foregroundStyle(Color.cfTextSecondary)
                 .frame(width: 32, height: 32)
                 .background(Color.appSurface2)
                 .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
             VStack(alignment: .leading, spacing: 2) {
                 Text(stop.name)
                     .font(.appBodyMedium)
-                    .foregroundStyle(Color.appText)
+                    .foregroundStyle(Color.cfTextPrimary)
                 Text("\(stop.id) · \(stop.road)")
                     .font(.appCaption)
-                    .foregroundStyle(Color.appText2)
+                    .foregroundStyle(Color.cfTextSecondary)
                     .lineLimit(1)
             }
             Spacer()
             if let m = stop.distanceMeters {
                 Text(distanceLabel(m))
                     .font(.appMicro)
-                    .foregroundStyle(Color.appText3)
+                    .foregroundStyle(Color.cfTextTertiary)
             }
             Image(systemName: "chevron.right")
                 .font(.system(size: 12, weight: .semibold))
-                .foregroundStyle(Color.appText3)
+                .foregroundStyle(Color.cfTextTertiary)
         }
         .padding(.vertical, 10)
         .padding(.horizontal, Spacing.screen)
@@ -345,7 +345,7 @@ struct JourneyPickerSheet: View {
     private func sectionHeader(_ title: String) -> some View {
         Text(title)
             .font(.appCaptionStrong)
-            .foregroundStyle(Color.appText3)
+            .foregroundStyle(Color.cfTextTertiary)
             .textCase(.uppercase)
             .tracking(0.4)
             .padding(.horizontal, Spacing.screen)
@@ -356,7 +356,7 @@ struct JourneyPickerSheet: View {
         return HStack(spacing: 10) {
             Image(systemName: "magnifyingglass")
                 .font(.system(size: 16, weight: .medium))
-                .foregroundStyle(Color.appText2)
+                .foregroundStyle(Color.cfTextSecondary)
             TextField(field.placeholder, text: $search.query)
                 .focused($isFocused)
                 .submitLabel(.search)
@@ -374,7 +374,7 @@ struct JourneyPickerSheet: View {
                 Button { search.query = "" } label: {
                     Image(systemName: "xmark.circle.fill")
                         .font(.system(size: 16))
-                        .foregroundStyle(Color.appText3)
+                        .foregroundStyle(Color.cfTextTertiary)
                 }
                 .buttonStyle(.plain)
             }
@@ -403,16 +403,16 @@ struct JourneyPickerSheet: View {
                 VStack(alignment: .leading, spacing: 2) {
                     Text(title)
                         .font(.appBodyMedium)
-                        .foregroundStyle(Color.appText)
+                        .foregroundStyle(Color.cfTextPrimary)
                     Text(subtitle)
                         .font(.appCaption)
-                        .foregroundStyle(Color.appText2)
+                        .foregroundStyle(Color.cfTextSecondary)
                         .lineLimit(1)
                 }
                 Spacer()
                 Image(systemName: "chevron.right")
                     .font(.system(size: 12, weight: .semibold))
-                    .foregroundStyle(Color.appText3)
+                    .foregroundStyle(Color.cfTextTertiary)
             }
             .padding(.horizontal, Spacing.screen)
             .contentShape(Rectangle())
