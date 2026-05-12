@@ -90,11 +90,11 @@ struct HeroContext {
             return HeroContext(
                 time: time,
                 greeting: greetingFor("Hi", name),
-                headline: "Heading somewhere?",
+                headline: journey != nil ? "Next out the door" : "Heading somewhere?",
                 labelTop: "Right now",
-                prompt: "Tap a stop below to plan your trip",
+                prompt: journey == nil ? "Tap a stop below to plan your trip" : nil,
                 weather: weather,
-                journey: nil
+                journey: journey
             )
         case .evening:
             return HeroContext(
@@ -120,11 +120,11 @@ struct HeroContext {
             return HeroContext(
                 time: time,
                 greeting: greetingFor("Happy weekend", name),
-                headline: "Nothing scheduled",
+                headline: journey != nil ? "Heading out" : "Nothing scheduled",
                 labelTop: "Right now",
-                prompt: "Browse nearby stops for casual travel",
+                prompt: journey == nil ? "Browse nearby stops for casual travel" : nil,
                 weather: weather,
-                journey: nil
+                journey: journey
             )
         }
     }

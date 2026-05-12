@@ -7,11 +7,11 @@ private let bugReportRecipient = "commute688@gmail.com"
 struct ProfileView: View {
     @Environment(AppState.self) private var appState
     @Environment(\.openURL) private var openURL
-    @State private var showingOnboarding = false
     @State private var showingNameEditor = false
     @State private var editingPlace: SavedPlace.Kind?
     @State private var showingMailUnavailable = false
     @State private var showingFavourites = false
+    @State private var showingResetConfirm = false
 
     var body: some View {
         VStack(spacing: 0) {
@@ -44,9 +44,6 @@ struct ProfileView: View {
         .navigationBarBackButtonHidden(true)
         .toolbar(.hidden, for: .navigationBar)
         .toolbar(.hidden, for: .tabBar)
-        .sheet(isPresented: $showingOnboarding) {
-            OnboardingFlowView()
-        }
         .sheet(isPresented: $showingNameEditor) {
             NameEditorSheet()
                 .environment(appState)
@@ -153,14 +150,6 @@ struct ProfileView: View {
 
     private var preferencesGroup: some View {
         ListGroup {
-            Button {
-                appState.cycleColorScheme()
-            } label: {
-                ListRow(symbol: "moon.fill", symbolTint: Color.cfTextSecondary, label: "Dark mode", value: appState.colorScheme.label)
-            }
-            .buttonStyle(.plain)
-            .sensoryFeedback(.selection, trigger: appState.colorScheme)
-
             ListRow(symbol: "bell.fill", symbolTint: Color.cfTextSecondary, label: "Notifications") {
                 ToggleSwitch(isOn: Binding(get: { appState.notificationsEnabled }, set: { appState.notificationsEnabled = $0 }))
             }
@@ -184,13 +173,6 @@ struct ProfileView: View {
     private var aboutGroup: some View {
         ListGroup {
             Button {
-                showingOnboarding = true
-            } label: {
-                ListRow(symbol: "sparkles", symbolTint: Color.cfTextSecondary, label: "Replay onboarding", chevron: true)
-            }
-            .buttonStyle(.plain)
-
-            Button {
                 openBugReport()
             } label: {
                 ListRow(symbol: "ladybug.fill", symbolTint: Color.appDanger, label: "Report a bug", chevron: true)
@@ -200,6 +182,21 @@ struct ProfileView: View {
                 Button("OK", role: .cancel) {}
             } message: {
                 Text("Add a mail account in Settings, or email \(bugReportRecipient) from another device.")
+            }
+
+            Button {
+                showingResetConfirm = true
+            } label: {
+                ListRow(symbol: "trash.fill", symbolTint: Color.appDanger, label: "Reset app data", chevron: true)
+            }
+            .buttonStyle(.plain)
+            .alert("Reset app data?", isPresented: $showingResetConfirm) {
+                Button("Cancel", role: .cancel) {}
+                Button("Reset", role: .destructive) {
+                    Task { await appState.resetAllData() }
+                }
+            } message: {
+                Text("This clears your saved places, favourites, name and preferences, and stops any active tracking. You'll be returned to onboarding.")
             }
 
             ListRow(

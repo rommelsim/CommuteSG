@@ -1,5 +1,6 @@
 import SwiftUI
 import WidgetKit
+import CoreLocation
 
 struct HomeView: View {
     @Environment(AppState.self) private var appState
@@ -480,7 +481,20 @@ struct HomeView: View {
     }
 
     private func refreshHeroWeather() async {
-        guard let location = LocationService.shared.lastLocation else { return }
+        // The first hero refresh can race ahead of `viewModel.load()` —
+        // when that happens `lastLocation` is still nil and we used to
+        // bail out, leaving the weather chip stuck at the "—" placeholder.
+        // Pull a fresh fix on demand so the chip resolves even on cold
+        // entry to Home.
+        let location: CLLocation?
+        if let cached = LocationService.shared.lastLocation {
+            location = cached
+        } else if LocationService.shared.isAuthorized {
+            location = try? await LocationService.shared.currentLocation()
+        } else {
+            location = nil
+        }
+        guard let location else { return }
         if let w = await WeatherProvider.shared.current(at: location) {
             heroWeather = w
         }
@@ -500,16 +514,28 @@ struct HomeView: View {
     /// Returns nil only when there's no saved place for the current time
     /// of day or no nearby bus data at all.
     private func refreshHeroJourney() async {
-        let kind: SavedPlace.Kind? = {
+        // Time of day picks a preferred destination; if it isn't filled in
+        // we fall back to the other saved place so the hero still surfaces
+        // a real ETA for users who only completed one address.
+        let preferredKind: SavedPlace.Kind = {
             switch timeContext {
-            case .morning: .work
-            case .evening, .night: .home
-            default: nil
+            case .morning, .midday: .work
+            case .evening, .night, .weekend: .home
             }
         }()
-        guard let kind,
-              let address = appState.savedPlaces.first(where: { $0.kind == kind })?.address,
-              !address.trimmingCharacters(in: .whitespaces).isEmpty,
+        let fallbackKind: SavedPlace.Kind = preferredKind == .work ? .home : .work
+
+        func filledAddress(_ kind: SavedPlace.Kind) -> String? {
+            let raw = appState.savedPlaces.first(where: { $0.kind == kind })?.address ?? ""
+            let trimmed = raw.trimmingCharacters(in: .whitespaces)
+            return trimmed.isEmpty ? nil : trimmed
+        }
+
+        let resolved: (String, SavedPlace.Kind)? =
+            filledAddress(preferredKind).map { ($0, preferredKind) }
+            ?? filledAddress(fallbackKind).map { ($0, fallbackKind) }
+
+        guard let (address, kind) = resolved,
               let firstStop = viewModel.nearbyBusStops.first
         else {
             heroJourney = nil

@@ -15,13 +15,29 @@ enum MainTab: Hashable, CaseIterable {
         }
     }
 
-    var symbol: String {
+    /// SF Symbol used when this tab is *not* the active selection.
+    var unselectedSymbol: String {
+        switch self {
+        case .home:   "house"
+        case .plan:   "map"
+        case .fares:  "creditcard"
+        case .alerts: "bell"
+        }
+    }
+
+    /// SF Symbol used when this tab is the active selection — filled
+    /// variant for a clear "you are here" affordance in the tab bar.
+    var selectedSymbol: String {
         switch self {
         case .home:   "house.fill"
-        case .plan:   "point.topleft.down.curvedto.point.bottomright.up"
-        case .fares:  "function"
+        case .plan:   "map.fill"
+        case .fares:  "creditcard.fill"
         case .alerts: "bell.fill"
         }
+    }
+
+    func symbol(isSelected: Bool) -> String {
+        isSelected ? selectedSymbol : unselectedSymbol
     }
 }
 
@@ -42,19 +58,31 @@ struct MainTabView: View {
         // call here; Apple's transition is intentionally instant.
         TabView(selection: $selection) {
             HomeView(selectedTab: $selection)
-                .tabItem { Label(MainTab.home.label, systemImage: MainTab.home.symbol) }
+                .tabItem {
+                    Label(MainTab.home.label,
+                          systemImage: MainTab.home.symbol(isSelected: selection == .home))
+                }
                 .tag(MainTab.home)
 
             PlanView()
-                .tabItem { Label(MainTab.plan.label, systemImage: MainTab.plan.symbol) }
+                .tabItem {
+                    Label(MainTab.plan.label,
+                          systemImage: MainTab.plan.symbol(isSelected: selection == .plan))
+                }
                 .tag(MainTab.plan)
 
             FaresView()
-                .tabItem { Label(MainTab.fares.label, systemImage: MainTab.fares.symbol) }
+                .tabItem {
+                    Label(MainTab.fares.label,
+                          systemImage: MainTab.fares.symbol(isSelected: selection == .fares))
+                }
                 .tag(MainTab.fares)
 
             AlertsView(viewModel: alertsViewModel)
-                .tabItem { Label(MainTab.alerts.label, systemImage: MainTab.alerts.symbol) }
+                .tabItem {
+                    Label(MainTab.alerts.label,
+                          systemImage: MainTab.alerts.symbol(isSelected: selection == .alerts))
+                }
                 .tag(MainTab.alerts)
                 .badge(alertsViewModel.disruptions.count)
         }

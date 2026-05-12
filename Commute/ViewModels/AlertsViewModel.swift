@@ -45,11 +45,33 @@ final class AlertsViewModel {
             dataMode = .live
             lastUpdated = Date()
             writeWidgetSnapshot()
+            await notifyDisruptions()
         } catch {
             disruptions = []
             alerts = mock.alerts().filter { $0.kind == .mrt }
             dataMode = .demo
         }
+    }
+
+    /// Push a system notification for each disruption we haven't already
+    /// notified about this session. Dedup happens inside the service via
+    /// a stable signature (line code + affected stations), so re-running
+    /// `refresh()` against an unchanged incident is a no-op.
+    private func notifyDisruptions() async {
+        for d in disruptions {
+            let signature = "\(d.line.code).\(d.stations)"
+            await NotificationService.shared.postDisruption(
+                signature: signature,
+                lineName: d.line.fullName,
+                body: disruptionBody(for: d)
+            )
+        }
+    }
+
+    private func disruptionBody(for d: LineDisruption) -> String {
+        let stations = d.stations.isEmpty ? "trains" : "trains between \(d.stations)"
+        let dir = d.direction.isEmpty ? "" : " (\(d.direction))"
+        return "Delays affecting \(stations)\(dir). Tap for details."
     }
 
     /// Mirror the current line statuses to the App Group so the MRT Status

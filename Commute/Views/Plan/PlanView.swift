@@ -15,6 +15,7 @@ struct PlanView: View {
         NavigationStack(path: $nav.path) {
             ScrollView {
                 VStack(spacing: Spacing.s16) {
+                    header
                     fromToPanel
                         .padding(.horizontal, Spacing.screen)
                     if viewModel.hasAnyValue {
@@ -59,8 +60,7 @@ struct PlanView: View {
             }
             .scrollIndicators(.hidden)
             .background(Color.appSurface)
-            .navigationTitle("Planner")
-            .navigationBarTitleDisplayMode(.large)
+            .toolbar(.hidden, for: .navigationBar)
             .navigationDestination(for: HomeRoute.self) { route in
                 destination(for: route)
             }
@@ -96,6 +96,23 @@ struct PlanView: View {
                 }
             }
         }
+    }
+
+    // MARK: - Header
+
+    private var header: some View {
+        VStack(alignment: .leading, spacing: 2) {
+            Text("Plan a journey")
+                .font(.appTitle)
+                .tracking(-0.5)
+                .foregroundStyle(Color.cfTextPrimary)
+            Text("Pick a starting point and where you're going")
+                .font(.appLabel)
+                .foregroundStyle(Color.cfTextSecondary)
+        }
+        .padding(.horizontal, Spacing.screen)
+        .padding(.top, 10)
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 
     // MARK: - From/To panel

@@ -67,6 +67,12 @@ final class LiveActivityManager {
                 content: content,
                 pushType: nil
             )
+            // New tracking session — clear any past "arrived" dedup so the
+            // next 0-min update can fire its alert.
+            NotificationService.shared.resetArrivalDedup(
+                forServiceNo: serviceNo,
+                stopCode: stopCode
+            )
             SoundEffect.playSuccess()
             ToastCenter.shared.show(.success(
                 "Tracking Bus \(serviceNo) on Lock Screen",
@@ -95,6 +101,19 @@ final class LiveActivityManager {
             staleDate: Date().addingTimeInterval(15 * 60)
         )
         await activity.update(content)
+
+        // Fire the time-sensitive "arriving" alert exactly once per tracked
+        // arrival — the service handles dedup so back-to-back 0/1-min
+        // updates don't ping the user repeatedly.
+        if let eta = etaMinutes, eta <= 1 {
+            await NotificationService.shared.postArriving(
+                serviceNo: activity.attributes.serviceNo,
+                stopName: activity.attributes.stopName,
+                stopCode: activity.attributes.stopCode,
+                destination: activity.attributes.destination,
+                crowdLevel: crowdLevel
+            )
+        }
     }
 
     /// End the activity. iOS shows it for ~4 hours on the Lock Screen

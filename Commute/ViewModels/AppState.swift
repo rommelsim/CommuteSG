@@ -4,27 +4,11 @@ import Observation
 enum AppColorScheme: Int, CaseIterable {
     case system = 0, light = 1, dark = 2
 
-    var label: String {
-        switch self {
-        case .system: "Auto"
-        case .light:  "Light"
-        case .dark:   "Dark"
-        }
-    }
-
     var preferred: ColorScheme? {
         switch self {
         case .system: nil
         case .light:  .light
         case .dark:   .dark
-        }
-    }
-
-    var next: AppColorScheme {
-        switch self {
-        case .system: .light
-        case .light:  .dark
-        case .dark:   .system
         }
     }
 }
@@ -100,7 +84,14 @@ final class AppState {
     }
 
     var notificationsEnabled: Bool {
-        didSet { UserDefaults.standard.set(notificationsEnabled, forKey: Self.notificationsKey) }
+        didSet {
+            UserDefaults.standard.set(notificationsEnabled, forKey: Self.notificationsKey)
+            // Ask the OS for permission the first time the user opts in.
+            // The service short-circuits if already granted/denied.
+            if notificationsEnabled && !oldValue {
+                Task { await NotificationService.shared.requestAuthorization() }
+            }
+        }
     }
 
     var userName: String {
@@ -128,7 +119,11 @@ final class AppState {
     init() {
         let defaults = UserDefaults.standard
         self.hasCompletedOnboarding = defaults.bool(forKey: Self.onboardingKey)
-        self.colorScheme = AppColorScheme(rawValue: defaults.integer(forKey: Self.colorSchemeKey)) ?? .system
+        // Dark-mode override was removed from the UI — the app now follows
+        // the OS appearance unconditionally. Reset any value persisted by
+        // older builds so users who had Light/Dark forced get unstuck.
+        self.colorScheme = .system
+        defaults.set(AppColorScheme.system.rawValue, forKey: Self.colorSchemeKey)
         self.savedPlaces = Self.decode(Self.savedPlacesKey) ?? AppState.defaultPlaces
         let stops: [String] = Self.decode(Self.favoriteStops) ?? []
         self.favoriteBusStopCodes = Set(stops)
@@ -220,17 +215,42 @@ final class AppState {
         }
     }
 
-    func cycleColorScheme() {
-        colorScheme = colorScheme.next
-    }
-
     func cycleLanguage() {
         let all = AppLanguage.allCases
         let idx = all.firstIndex(of: language) ?? 0
         language = all[(idx + 1) % all.count]
     }
 
-    func resetOnboarding() {
+    /// Wipe everything tied to this user: saved places, favourites, name,
+    /// preferences, widget snapshots, pending notifications, and any
+    /// in-flight Live Activity. After this returns, RootView will react to
+    /// `hasCompletedOnboarding = false` and present the onboarding flow
+    /// again from a clean slate.
+    func resetAllData() async {
+        await LiveActivityManager.shared.endActiveActivity()
+        await NotificationService.shared.resetAll()
+        SharedSnapshot.clearAll()
+
+        // Wipe the persisted keys first so any background read in flight
+        // sees an empty store, then re-assign in-memory values to defaults
+        // (the didSet hooks re-write those defaults back to UserDefaults).
+        let defaults = UserDefaults.standard
+        for key in [Self.onboardingKey, Self.colorSchemeKey, Self.savedPlacesKey,
+                    Self.favoriteStops, Self.favoriteLines, Self.notificationsKey,
+                    Self.userNameKey, Self.nearbyOrderKey, Self.collapsedKey,
+                    Self.languageKey] {
+            defaults.removeObject(forKey: key)
+        }
+
+        savedPlaces = AppState.defaultPlaces
+        favoriteBusStopCodes = []
+        favoriteLineCodes = []
+        notificationsEnabled = true
+        userName = ""
+        nearbyOrder = NearbyBlock.allCases
+        collapsedSections = []
+        language = .system
+        colorScheme = .system
         hasCompletedOnboarding = false
     }
 

@@ -52,14 +52,15 @@ struct AlertsView: View {
                 // Title scoped to MRT — the data source (LTA's
                 // TrainServiceAlerts endpoint) only covers train lines, so
                 // saying "Alerts" alone misleads users into expecting bus
-                // disruptions too. "Train service" makes the scope explicit.
-                Text("Train service")
+                // disruptions too. "Train status" makes the scope explicit
+                // and reads as a complete idea on its own.
+                Text("Train status")
                     .font(.appTitle)
                     .tracking(-0.5)
                     .foregroundStyle(Color.cfTextPrimary)
                 Text(headerSubtitle)
-                    .font(.appMicro)
-                    .foregroundStyle(Color.cfTextTertiary)
+                    .font(.appLabel)
+                    .foregroundStyle(Color.cfTextSecondary)
             }
             Spacer()
             LiveBadge(

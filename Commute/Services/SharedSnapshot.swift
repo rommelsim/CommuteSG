@@ -117,6 +117,16 @@ public enum SharedSnapshot {
               let data = store.data(forKey: pinnedKey) else { return nil }
         return try? JSONDecoder().decode(PinnedItemsSnapshot.self, from: data)
     }
+
+    /// Wipe every snapshot the main app has published into the App Group.
+    /// Called by the in-app "Reset" action so widgets stop showing
+    /// stale personal data (pinned stops, journey hero) after a wipe.
+    public static func clearAll() {
+        guard let store = UserDefaults(suiteName: appGroupID) else { return }
+        store.removeObject(forKey: mrtKey)
+        store.removeObject(forKey: nextOutKey)
+        store.removeObject(forKey: pinnedKey)
+    }
 }
 
 /// Snapshot of the user's pinned (starred) bus stops and bus service

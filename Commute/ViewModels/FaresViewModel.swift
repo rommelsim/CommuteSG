@@ -21,18 +21,7 @@ final class FaresViewModel {
     /// meaningful when `mode == .mrtLrt`.
     var isPrePeak: Bool = false
 
-    init() {
-        // Sensible defaults so the screen has something to show on first run.
-        let mrt = MRTStationsRepository.shared.stations
-        if let bedok = mrt.first(where: { $0.name == "Bedok" }),
-           let ep = FareEndpoint.make(from: bedok) {
-            self.fromEndpoint = ep
-        }
-        if let marina = mrt.first(where: { $0.name == "Marina Bay" }),
-           let ep = FareEndpoint.make(from: marina) {
-            self.toEndpoint = ep
-        }
-    }
+    init() {}
 
     // MARK: - Outputs
 

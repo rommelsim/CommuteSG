@@ -27,6 +27,7 @@ struct CommuteApp: App {
                     .transition(.opacity)
                 }
             }
+            .task { await NotificationService.shared.bootstrap() }
         }
     }
 
