@@ -237,14 +237,7 @@ struct HomeHero: View {
 
     @ViewBuilder
     private var subhead: some View {
-        if let journey = context.journey {
-            (Text("Catch ")
-                .foregroundStyle(Color.cfOnDarkSecondary)
-             + Text(journey.bus).fontWeight(.bold).foregroundStyle(Color.cfOnDarkPrimary)
-             + Text(" in \(journey.etaMinutes) min · \(journey.slack)")
-                .foregroundStyle(Color.cfOnDarkSecondary))
-            .font(.system(size: 14, weight: .medium))
-        } else if let prompt = context.prompt {
+        if context.journey == nil, let prompt = context.prompt {
             Text(prompt)
                 .font(.system(size: 14, weight: .medium))
                 .foregroundStyle(Color.cfOnDarkSecondary)

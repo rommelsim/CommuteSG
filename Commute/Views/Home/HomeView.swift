@@ -8,7 +8,6 @@ struct HomeView: View {
     @State private var viewModel = HomeViewModel()
     @State private var navigation = HomeNavigation()
     @State private var editingPlace: SavedPlace.Kind?
-    @State private var showingSearch = false
     @State private var previewingShortcut: ShortcutPreviewState?
     @State private var stopSheet: StopSheetData?
     @State private var mrtSheet: MRTStation?
@@ -30,13 +29,12 @@ struct HomeView: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 14) {
                     titleRow
-                    searchBar
                     HomeHero(context: heroContext)
                     savedDestinations
                     pinnedStopsSection
                     nearbyTransitHeader
-                    nearbyTransitGroup
                     mrtSection
+                    nearbyTransitGroup
                 }
                 .padding(.horizontal, 20)
                 .padding(.top, 12)
@@ -78,10 +76,6 @@ struct HomeView: View {
                 // Editor is purely "set the address". After save, stay on
                 // Home — the user can tap the shortcut later to plan a trip.
                 PlaceEditorSheet(kind: kind)
-                    .environment(appState)
-            }
-            .sheet(isPresented: $showingSearch) {
-                SearchView()
                     .environment(appState)
             }
             .sheet(item: $previewingShortcut) { state in
@@ -148,23 +142,6 @@ struct HomeView: View {
         }
     }
 
-    private var searchBar: some View {
-        Button { showingSearch = true } label: {
-            HStack(spacing: 8) {
-                Image(systemName: "magnifyingglass")
-                    .font(.system(size: 13, weight: .bold))
-                    .foregroundStyle(Color.cfTextTertiary)
-                Text("Search station, bus, address")
-                    .font(.system(size: 13, weight: .medium))
-                    .foregroundStyle(Color.cfTextTertiary)
-                Spacer()
-            }
-            .padding(.horizontal, 14)
-            .padding(.vertical, 10)
-            .glassSurface(cornerRadius: 16, fill: Color.cfGlassFillStrong)
-        }
-        .buttonStyle(.plain)
-    }
 
     private var savedDestinations: some View {
         HStack(spacing: 8) {
@@ -216,8 +193,7 @@ struct HomeView: View {
     private var nearbyTransitHeader: some View {
         HStack {
             Text("Nearby transit")
-                .font(.system(size: 14, weight: .bold))
-                .tracking(-0.2)
+                .font(.system(size: 15, weight: .semibold))
                 .foregroundStyle(Color.cfTextPrimary)
             Spacer()
             HStack(spacing: 4) {
@@ -311,11 +287,12 @@ struct HomeView: View {
             VStack(alignment: .leading, spacing: 12) {
                 HStack(spacing: 6) {
                     Image(systemName: "star.fill")
-                        .font(.system(size: 11, weight: .bold))
+                        .font(.system(size: 10, weight: .bold))
                         .foregroundStyle(Color.appAmber)
-                    Text("Pinned")
-                        .font(.system(size: 14, weight: .bold))
-                        .foregroundStyle(Color.cfTextPrimary)
+                    Text("PINNED")
+                        .font(.system(size: 11, weight: .semibold))
+                        .tracking(0.8)
+                        .foregroundStyle(Color.cfTextSecondary)
                 }
 
                 if !pinnedBusNumbers.isEmpty {
@@ -334,7 +311,6 @@ struct HomeView: View {
                     }
                 }
             }
-            .padding(.top, 4)
         }
     }
 
