@@ -169,7 +169,7 @@ struct HomeHero: View {
                 )
 
             content
-                .padding(16)
+                .padding(context.journey == nil ? 12 : 16)
         }
         .frame(maxWidth: .infinity)
         .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
@@ -188,18 +188,19 @@ struct HomeHero: View {
     }
 
     private var content: some View {
-        VStack(alignment: .leading, spacing: 0) {
+        let reduced = context.journey == nil
+        return VStack(alignment: .leading, spacing: 0) {
             topRow
-                .padding(.bottom, 10)
+                .padding(.bottom, reduced ? 6 : 10)
 
             Text(context.headline)
-                .font(.system(size: 26, weight: .bold))
+                .font(.system(size: reduced ? 20 : 26, weight: .bold))
                 .tracking(-0.3)
                 .foregroundStyle(Color.cfOnDarkPrimary)
 
             subhead
                 .padding(.top, 2)
-                .padding(.bottom, 12)
+                .padding(.bottom, reduced ? 4 : 12)
 
             if let journey = context.journey {
                 Divider()
@@ -222,16 +223,18 @@ struct HomeHero: View {
                     .foregroundStyle(Color.cfOnDarkMuted)
             }
             Spacer()
-            HStack(spacing: 4) {
-                Image(systemName: context.weather.symbol)
-                    .font(.system(size: 10, weight: .semibold))
-                Text(context.weather.text)
-                    .font(.system(size: 9, weight: .semibold))
+            if context.weather.text != "—" {
+                HStack(spacing: 4) {
+                    Image(systemName: context.weather.symbol)
+                        .font(.system(size: 10, weight: .semibold))
+                    Text(context.weather.text)
+                        .font(.system(size: 9, weight: .semibold))
+                }
+                .foregroundStyle(Color.cfOnDarkSecondary)
+                .padding(.horizontal, 6)
+                .padding(.vertical, 3)
+                .background(Color.white.opacity(0.10), in: RoundedRectangle(cornerRadius: 6, style: .continuous))
             }
-            .foregroundStyle(Color.cfOnDarkSecondary)
-            .padding(.horizontal, 6)
-            .padding(.vertical, 3)
-            .background(Color.white.opacity(0.10), in: RoundedRectangle(cornerRadius: 6, style: .continuous))
         }
     }
 

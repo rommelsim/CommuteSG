@@ -15,47 +15,53 @@ struct BusTrackingLiveActivity: Widget {
         } dynamicIsland: { context in
             DynamicIsland {
                 DynamicIslandExpandedRegion(.leading) {
-                    HStack(spacing: 6) {
+                    VStack(alignment: .center, spacing: 4) {
                         Image(systemName: "bus.fill")
-                            .font(.system(size: 13))
-                            .foregroundStyle(.white.opacity(0.7))
+                            .font(.system(size: 18))
+                            .foregroundStyle(.white.opacity(0.75))
                         Text("Commute")
-                            .font(.system(size: 12))
-                            .foregroundStyle(.white.opacity(0.7))
+                            .font(.system(size: 9, weight: .medium))
+                            .tracking(0.4)
+                            .foregroundStyle(.white.opacity(0.55))
+                            .lineLimit(1)
+                            .fixedSize(horizontal: true, vertical: false)
                     }
                     .padding(.leading, 4)
                 }
                 DynamicIslandExpandedRegion(.trailing) {
-                    HStack(spacing: 5) {
-                        Circle()
-                            .fill(context.state.isLive ? liveGreen : Color.orange)
-                            .frame(width: 5, height: 5)
-                        Text(context.state.isLive ? "LIVE" : "SCHED")
-                            .font(.system(size: 10, weight: .medium))
-                            .tracking(0.6)
-                            .foregroundStyle(.white.opacity(0.6))
-                    }
+                    EtaBlock(
+                        minutes: context.state.etaMinutes,
+                        primarySize: 28,
+                        unitSize: 13,
+                        primaryColor: .white,
+                        secondary: arrivalClockTime(for: context.state.etaMinutes),
+                        secondaryColor: .white.opacity(0.6)
+                    )
                     .padding(.trailing, 4)
                 }
                 DynamicIslandExpandedRegion(.center) {
-                    HStack(alignment: .center, spacing: 12) {
-                        VStack(alignment: .leading, spacing: 6) {
+                    VStack(alignment: .leading, spacing: 6) {
+                        HStack(spacing: 8) {
                             ServicePill(service: context.attributes.serviceNo, size: 13)
-                            Text(routeSubtitle(for: context))
-                                .font(.system(size: 11))
-                                .foregroundStyle(.white.opacity(0.7))
-                                .lineLimit(1)
+                            HStack(spacing: 4) {
+                                Circle()
+                                    .fill(context.state.isLive ? liveGreen : Color.orange)
+                                    .frame(width: 5, height: 5)
+                                Text(context.state.isLive ? "LIVE" : "SCHED")
+                                    .font(.system(size: 9, weight: .semibold))
+                                    .tracking(0.5)
+                                    .foregroundStyle(.white.opacity(0.85))
+                                    .lineLimit(1)
+                                    .fixedSize(horizontal: true, vertical: false)
+                            }
                         }
-                        Spacer(minLength: 8)
-                        EtaBlock(
-                            minutes: context.state.etaMinutes,
-                            primarySize: 32,
-                            unitSize: 13,
-                            primaryColor: .white,
-                            secondary: arrivalClockTime(for: context.state.etaMinutes),
-                            secondaryColor: .white.opacity(0.6)
-                        )
+                        Text(routeSubtitle(for: context))
+                            .font(.system(size: 11))
+                            .foregroundStyle(.white.opacity(0.7))
+                            .lineLimit(1)
+                            .truncationMode(.tail)
                     }
+                    .frame(maxWidth: .infinity, alignment: .leading)
                     .padding(.top, 4)
                 }
                 DynamicIslandExpandedRegion(.bottom) {
@@ -131,7 +137,13 @@ struct BusTrackingLiveActivity: Widget {
 
     private func routeSubtitle(for context: ActivityViewContext<BusTrackingActivity>) -> String {
         let from = context.attributes.stopName
+        // Strip any leading "→" the destination string may already carry —
+        // some callers format it as "→ 43009". Without this we render
+        // "Bef Clementi Rd → → 43009".
         let to = context.attributes.destination
+            .trimmingCharacters(in: .whitespaces)
+            .drop(while: { $0 == "→" })
+            .trimmingCharacters(in: .whitespaces)
         if from.isEmpty { return "→ \(to)" }
         return "\(from) → \(to)"
     }

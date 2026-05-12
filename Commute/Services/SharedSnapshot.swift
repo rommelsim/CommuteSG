@@ -105,6 +105,19 @@ public enum SharedSnapshot {
     // MARK: - Pinned items
 
     private static let pinnedKey = "snapshot.pinned.v1"
+    private static let pinnedArrivalsKey = "snapshot.pinned.arrivals.v1"
+
+    public static func writePinnedArrivals(_ snapshot: PinnedArrivalsSnapshot) {
+        guard let store = UserDefaults(suiteName: appGroupID),
+              let data = try? JSONEncoder().encode(snapshot) else { return }
+        store.set(data, forKey: pinnedArrivalsKey)
+    }
+
+    public static func readPinnedArrivals() -> PinnedArrivalsSnapshot? {
+        guard let store = UserDefaults(suiteName: appGroupID),
+              let data = store.data(forKey: pinnedArrivalsKey) else { return nil }
+        return try? JSONDecoder().decode(PinnedArrivalsSnapshot.self, from: data)
+    }
 
     public static func writePinned(_ snapshot: PinnedItemsSnapshot) {
         guard let store = UserDefaults(suiteName: appGroupID),
@@ -126,6 +139,32 @@ public enum SharedSnapshot {
         store.removeObject(forKey: mrtKey)
         store.removeObject(forKey: nextOutKey)
         store.removeObject(forKey: pinnedKey)
+        store.removeObject(forKey: pinnedArrivalsKey)
+    }
+}
+
+/// Lightweight snapshot of next-arrival timestamps at the user's pinned bus
+/// stops. Persisted in the App Group so cold-launching Home can render
+/// last-known ETAs instantly while the live LTA fetch is in flight. We only
+/// store absolute `Date`s — minute counts are always recomputed at render
+/// time, so a stale snapshot naturally falls off rather than freezing on a
+/// wrong number.
+public struct PinnedArrivalsSnapshot: Codable, Hashable {
+    public struct Arrival: Codable, Hashable {
+        public let serviceNo: String
+        public let nextArrivalAt: Date?
+        public init(serviceNo: String, nextArrivalAt: Date?) {
+            self.serviceNo = serviceNo
+            self.nextArrivalAt = nextArrivalAt
+        }
+    }
+    /// Keyed by bus-stop code (e.g. "84009").
+    public let arrivalsByStop: [String: [Arrival]]
+    public let updatedAt: Date
+
+    public init(arrivalsByStop: [String: [Arrival]], updatedAt: Date) {
+        self.arrivalsByStop = arrivalsByStop
+        self.updatedAt = updatedAt
     }
 }
 

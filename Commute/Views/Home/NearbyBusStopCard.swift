@@ -56,11 +56,20 @@ struct NearbyBusStopCard: View {
     private var header: some View {
         HStack(spacing: 8) {
             BusStopIcon(size: 13, color: Color.cfTextSecondary, strokeWidth: 2.2)
-            Text(stop.name)
-                .font(.system(size: 14, weight: .bold))
-                .foregroundStyle(Color.cfTextPrimary)
-                .lineLimit(1)
-                .truncationMode(.tail)
+            VStack(alignment: .leading, spacing: 1) {
+                Text(stop.name)
+                    .font(.system(size: 14, weight: .bold))
+                    .foregroundStyle(Color.cfTextPrimary)
+                    .lineLimit(1)
+                    .truncationMode(.tail)
+                if !stop.road.isEmpty {
+                    Text(stop.road)
+                        .font(.system(size: 10, weight: .medium))
+                        .foregroundStyle(Color.cfTextTertiary)
+                        .lineLimit(1)
+                        .truncationMode(.tail)
+                }
+            }
             Spacer(minLength: 8)
 
             Button {

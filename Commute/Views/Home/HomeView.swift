@@ -4,6 +4,7 @@ import CoreLocation
 
 struct HomeView: View {
     @Environment(AppState.self) private var appState
+    @Environment(\.openURL) private var openURL
     @Binding var selectedTab: MainTab
     @State private var viewModel = HomeViewModel()
     @State private var navigation = HomeNavigation()
@@ -13,6 +14,39 @@ struct HomeView: View {
     @State private var mrtSheet: MRTStation?
     @State private var heroWeather: HeroContext.Weather = HeroContext.Weather(symbol: "sun.max.fill", text: "—")
     @State private var heroJourney: HeroContext.Journey?
+    /// Soonest persisted ETA per `[stopCode][serviceNo]`, loaded from the
+    /// App Group snapshot at init so Home renders last-known ETAs instantly
+    /// on cold launch instead of flashing blank chips. Replaced as soon as
+    /// the live LTA fetch lands. Stored as absolute dates so minute counts
+    /// recompute on each render — stale entries fade out naturally.
+    @State private var pinnedSnapshotByStop: [String: [String: Date]] =
+        Self.loadPinnedSnapshot()
+
+    private static func loadPinnedSnapshot() -> [String: [String: Date]] {
+        guard let snap = SharedSnapshot.readPinnedArrivals() else { return [:] }
+        var out: [String: [String: Date]] = [:]
+        for (code, arrivals) in snap.arrivalsByStop {
+            var perService: [String: Date] = [:]
+            for a in arrivals {
+                if let date = a.nextArrivalAt { perService[a.serviceNo] = date }
+            }
+            out[code] = perService
+        }
+        return out
+    }
+
+    /// Full live-arrival payload for each pinned bus stop, keyed by stop
+    /// code. Pinned items may sit far outside `viewModel.nearbyBusStops`, so
+    /// we hit LTA directly per pinned code. Stored as full `[BusArrival]`
+    /// (not just minutes) so that pinned **bus chips** can also resolve their
+    /// ETA against pinned-stop arrivals — e.g. if you pin bus 122 *and*
+    /// Kent Ridge Ter, the bus chip can answer "when is 122 at Kent Ridge?"
+    /// even when neither sits inside the nearby radius.
+    @State private var pinnedStopArrivals: [String: [BusArrival]] = [:]
+    /// True once `refreshPinnedStopETAs` has completed at least one pass.
+    /// Before then we can't tell "no upcoming bus" from "still loading", so
+    /// the chips render blank; after, an empty result becomes "No service".
+    @State private var pinnedFetchCompleted = false
 
     private struct ShortcutPreviewState: Identifiable {
         let kind: SavedPlace.Kind
@@ -45,10 +79,21 @@ struct HomeView: View {
             .refreshable {
                 await viewModel.refresh()
                 await refreshWeatherAndJourney()
+                await refreshPinnedStopETAs(force: true)
             }
             .task {
                 await viewModel.load()
                 await refreshWeatherAndJourney()
+                await refreshPinnedStopETAs(force: false)
+            }
+            // Keep pinned ETAs live while Home is visible. 30 s matches the
+            // LTA arrivals refresh cadence; the LTAService cache absorbs
+            // redundant calls. Task is cancelled automatically on disappear.
+            .task {
+                while !Task.isCancelled {
+                    try? await Task.sleep(nanoseconds: 30 * 1_000_000_000)
+                    await refreshPinnedStopETAs(force: true)
+                }
             }
             .onChange(of: viewModel.nearbyBusStops.count) { _, _ in
                 Task {
@@ -65,6 +110,7 @@ struct HomeView: View {
             // change without waiting for the next Home appearance.
             .onChange(of: appState.favoriteBusStopCodes) { _, _ in
                 publishPinnedSnapshot()
+                Task { await refreshPinnedStopETAs(force: false) }
             }
             .onChange(of: appState.favoriteLineCodes) { _, _ in
                 publishPinnedSnapshot()
@@ -118,15 +164,10 @@ struct HomeView: View {
 
     private var titleRow: some View {
         HStack(alignment: .top) {
-            VStack(alignment: .leading, spacing: 2) {
-                Text(heroContext.greeting)
-                    .font(.system(size: 11, weight: .medium))
-                    .foregroundStyle(Color.cfTextTertiary)
-                Text("Where to?")
-                    .font(.system(size: 22, weight: .bold))
-                    .tracking(-0.3)
-                    .foregroundStyle(Color.cfTextPrimary)
-            }
+            Text("Where to?")
+                .font(.system(size: 22, weight: .bold))
+                .tracking(-0.3)
+                .foregroundStyle(Color.cfTextPrimary)
             Spacer()
             Button {
                 navigation.go(.profile)
@@ -136,6 +177,8 @@ struct HomeView: View {
                     .foregroundStyle(Color.cfTextPrimary)
                     .frame(width: 32, height: 32)
                     .background(Color.cfHairlineStrong, in: Circle())
+                    .frame(width: 44, height: 44)
+                    .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
             .accessibilityLabel("Profile")
@@ -219,8 +262,12 @@ struct HomeView: View {
             .padding(2)
             .glassSurface(cornerRadius: 18)
         case .failed(let message):
-            ErrorCard(message: message) { Task { await viewModel.refresh() } }
-                .glassSurface(cornerRadius: 18)
+            if !LocationService.shared.isAuthorized {
+                locationDeniedCard
+            } else {
+                ErrorCard(message: message) { Task { await viewModel.refresh() } }
+                    .glassSurface(cornerRadius: 18)
+            }
         case .idle, .ready:
             if viewModel.nearbyBusStops.isEmpty {
                 EmptyStateView(
@@ -255,10 +302,69 @@ struct HomeView: View {
         }
     }
 
+    private var locationDeniedCard: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(spacing: 8) {
+                Image(systemName: "location.slash.fill")
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundStyle(Color.appWarning)
+                Text("Location access is off")
+                    .font(.system(size: 14, weight: .bold))
+                    .foregroundStyle(Color.cfTextPrimary)
+            }
+            Text("Allow location for Commute in Settings to see nearby stops, trains, and arrivals.")
+                .font(.system(size: 12, weight: .medium))
+                .foregroundStyle(Color.cfTextSecondary)
+                .fixedSize(horizontal: false, vertical: true)
+            Button {
+                if let url = URL(string: "app-settings:") {
+                    openURL(url)
+                }
+            } label: {
+                Text("Open Settings")
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundStyle(.white)
+                    .padding(.horizontal, 14)
+                    .padding(.vertical, 8)
+                    .background(Color.appInfo, in: Capsule())
+            }
+            .buttonStyle(.plain)
+        }
+        .padding(14)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .glassSurface(cornerRadius: 18)
+    }
+
     @ViewBuilder
     private var mrtSection: some View {
-        if let mrt = viewModel.nearbyMRT {
-            NearbyMRTCard(nearby: mrt) { mrtSheet = mrt.station }
+        // Hide MRT entirely when location is denied — the dedicated banner in
+        // nearbyTransitGroup already explains the situation; a second card
+        // would just nag.
+        if case .failed = viewModel.loadingState, !LocationService.shared.isAuthorized {
+            EmptyView()
+        } else {
+        switch viewModel.loadingState {
+        case .locating, .fetchingStops, .loadingArrivals:
+            NearbyMRTSkeleton()
+        case .idle, .ready, .failed:
+            if let mrt = viewModel.nearbyMRT {
+                NearbyMRTCard(nearby: mrt) { mrtSheet = mrt.station }
+            } else if case .ready = viewModel.loadingState {
+                HStack(spacing: 10) {
+                    Image(systemName: "tram.fill")
+                        .font(.system(size: 12, weight: .semibold))
+                        .foregroundStyle(Color.cfTextTertiary)
+                    Text("No MRT station nearby")
+                        .font(.system(size: 13, weight: .medium))
+                        .foregroundStyle(Color.cfTextSecondary)
+                    Spacer()
+                }
+                .padding(.horizontal, 14)
+                .padding(.vertical, 10)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .glassSurface(cornerRadius: 14, fill: Color.cfGlassFillSoft)
+            }
+        }
         }
     }
 
@@ -270,14 +376,25 @@ struct HomeView: View {
     private var pinnedStops: [BusStop] {
         appState.favoriteBusStopCodes
             .compactMap { BusStopNameCache.shared.stop(forCode: $0) }
-            .sorted { $0.name < $1.name }
+            .sorted { lhs, rhs in
+                // Soonest arrival first; unknown/no-service sorted to the end
+                // (Int.max sentinel). Tie-break alphabetically so the order
+                // is stable when multiple chips are e.g. all "No service".
+                let l = soonestETA(atPinnedStop: lhs.id) ?? Int.max
+                let r = soonestETA(atPinnedStop: rhs.id) ?? Int.max
+                return (l, lhs.name) < (r, rhs.name)
+            }
     }
 
     /// Bus service numbers the user has starred (e.g. "156", "282").
     private var pinnedBusNumbers: [String] {
         appState.favoriteLineCodes.sorted { lhs, rhs in
-            // Numeric-aware sort so "10" comes before "100".
-            (Int(lhs) ?? .max, lhs) < (Int(rhs) ?? .max, rhs)
+            // Soonest arrival first; fall back to numeric-aware service-
+            // number sort for ties / no-service entries so "10" precedes
+            // "100".
+            let l = soonestETA(forService: lhs) ?? Int.max
+            let r = soonestETA(forService: rhs) ?? Int.max
+            return (l, Int(lhs) ?? .max, lhs) < (r, Int(rhs) ?? .max, rhs)
         }
     }
 
@@ -341,8 +458,10 @@ struct HomeView: View {
     private let pinnedChipHeight: CGFloat = 44
 
     private func pinnedStopChip(_ stop: BusStop) -> some View {
-        Button {
-            stopSheet = StopSheetData(stop: stop, arrivals: [])
+        let eta = soonestETA(atPinnedStop: stop.id)
+        let walk = walkMinutes(to: stop)
+        return Button {
+            stopSheet = StopSheetData(stop: stop, arrivals: pinnedStopArrivals[stop.id] ?? [])
         } label: {
             HStack(spacing: 8) {
                 BusStopIcon(size: 14, color: Color.cfTextSecondary, strokeWidth: 2.2)
@@ -350,6 +469,17 @@ struct HomeView: View {
                     .font(.system(size: 13, weight: .bold))
                     .foregroundStyle(Color.cfTextPrimary)
                     .lineLimit(1)
+                if let walk {
+                    HStack(spacing: 2) {
+                        Image(systemName: "figure.walk")
+                            .font(.system(size: 9, weight: .semibold))
+                        Text("\(walk)m")
+                            .font(.system(size: 10, weight: .semibold))
+                            .monospacedDigit()
+                    }
+                    .foregroundStyle(Color.cfTextTertiary)
+                }
+                etaTrailing(eta: eta)
             }
             .padding(.horizontal, 12)
             .frame(height: pinnedChipHeight)
@@ -360,35 +490,67 @@ struct HomeView: View {
     }
 
     private func pinnedBusChip(_ serviceNo: String) -> some View {
-        Button { handlePinnedBus(serviceNo) } label: {
+        let eta = soonestETA(forService: serviceNo)
+        return Button { handlePinnedBus(serviceNo) } label: {
             HStack(spacing: 8) {
                 ServiceChip(service: serviceNo, size: .sm)
-                Text("Bus")
-                    .font(.system(size: 9, weight: .semibold))
-                    .tracking(0.4)
-                    .foregroundStyle(Color.cfTextTertiary)
+                etaTrailing(eta: eta)
             }
             .padding(.horizontal, 12)
             .frame(height: pinnedChipHeight)
             .glassSurface(cornerRadius: 12, fill: Color.cfGlassFillSoft)
         }
         .buttonStyle(CardButtonStyle(pressedScale: 0.92))
-        .accessibilityLabel("Pinned bus \(serviceNo)")
+        .accessibilityLabel(
+            eta.map { "Pinned bus \(serviceNo), arriving in \($0) minutes" }
+                ?? "Pinned bus \(serviceNo)"
+        )
     }
 
-    /// Tapping a pinned bus opens its live tracking from the nearest stop
-    /// where it's currently arriving. If no nearby stop has live data for
-    /// this service, surface a quiet toast instead — silently doing nothing
-    /// would feel broken.
+    /// Trailing ETA chunk shared by both pinned chips. Three visual states:
+    ///   - waiting for first fetch    → render nothing (avoid premature "No service")
+    ///   - fetch done, ETA available  → green if ≤3 min, secondary otherwise
+    ///   - fetch done, no ETA         → muted "No service"
+    @ViewBuilder
+    private func etaTrailing(eta: Int?) -> some View {
+        if let eta {
+            Text(eta == 0 ? "Arr" : "\(eta) min")
+                .font(.system(size: 11, weight: .bold))
+                .monospacedDigit()
+                .foregroundStyle(eta <= 3 ? Color.appSuccess : Color.cfTextSecondary)
+        } else if pinnedFetchCompleted {
+            Text("No service")
+                .font(.system(size: 10, weight: .semibold))
+                .foregroundStyle(Color.cfTextTertiary)
+        }
+    }
+
+
+    /// Tapping a pinned bus opens live tracking from whichever stop has the
+    /// soonest arrival for this service — pinned stops first (the user has
+    /// declared interest in those), then nearby stops as a fallback. If
+    /// nothing's scheduled anywhere we know about, surface a quiet toast.
     private func handlePinnedBus(_ serviceNo: String) {
-        for entry in viewModel.nearbyBusStops {
-            if let arrival = entry.arrivals.first(where: { $0.serviceNo == serviceNo }) {
-                navigation.go(.tracking(arrival, busStopCode: entry.stop.id))
-                return
+        struct Hit { let arrival: BusArrival; let stopCode: String; let minutes: Int }
+
+        var hits: [Hit] = []
+        for (code, arrivals) in pinnedStopArrivals {
+            for a in arrivals where a.serviceNo == serviceNo {
+                hits.append(Hit(arrival: a, stopCode: code, minutes: a.nextArrivalMinutes ?? .max))
             }
         }
-        Task { @MainActor in
-            ToastCenter.shared.show(.info("Bus \(serviceNo) not arriving nearby"))
+        for entry in viewModel.nearbyBusStops {
+            for a in entry.arrivals where a.serviceNo == serviceNo {
+                hits.append(Hit(arrival: a, stopCode: entry.stop.id, minutes: a.nextArrivalMinutes ?? .max))
+            }
+        }
+
+        if let best = hits.min(by: { $0.minutes < $1.minutes }) {
+            navigation.go(.tracking(best.arrival, busStopCode: best.stopCode))
+        } else {
+            Task { @MainActor in
+                ToastCenter.shared.show(.info("Bus \(serviceNo) not arriving soon"))
+            }
         }
     }
 
@@ -454,6 +616,97 @@ struct HomeView: View {
         let snap = PinnedItemsSnapshot(stops: stops, busNumbers: buses, updatedAt: Date())
         SharedSnapshot.writePinned(snap)
         WidgetCenter.shared.reloadTimelines(ofKind: "PinnedItemsWidget")
+    }
+
+    /// Fetch live arrivals for every pinned stop in parallel and publish the
+    /// full per-stop arrival list. Pinned stops may be far outside the
+    /// nearby radius, so we hit LTA directly. `LTAService` caches per stop
+    /// for a few seconds; `force: true` (pull-to-refresh) bypasses cache.
+    private func refreshPinnedStopETAs(force: Bool) async {
+        let codes = appState.favoriteBusStopCodes
+        guard !codes.isEmpty else {
+            pinnedStopArrivals = [:]
+            pinnedFetchCompleted = true
+            return
+        }
+        var next: [String: [BusArrival]] = [:]
+        await withTaskGroup(of: (String, [BusArrival]).self) { group in
+            for code in codes {
+                group.addTask {
+                    let arrivals = (try? await LTAService.shared.busArrivals(
+                        at: code, serviceNo: nil, force: force
+                    )) ?? []
+                    return (code, arrivals)
+                }
+            }
+            for await (code, arrivals) in group {
+                next[code] = arrivals
+            }
+        }
+        pinnedStopArrivals = next
+        pinnedFetchCompleted = true
+
+        // Persist a minimal snapshot (service + absolute date only) so the
+        // next cold launch can render last-known ETAs immediately.
+        var snap: [String: [PinnedArrivalsSnapshot.Arrival]] = [:]
+        for (code, arrivals) in next {
+            snap[code] = arrivals.map {
+                PinnedArrivalsSnapshot.Arrival(serviceNo: $0.serviceNo, nextArrivalAt: $0.nextArrivalAt)
+            }
+        }
+        SharedSnapshot.writePinnedArrivals(
+            PinnedArrivalsSnapshot(arrivalsByStop: snap, updatedAt: Date())
+        )
+        pinnedSnapshotByStop = Self.loadPinnedSnapshot()
+    }
+
+    /// Walking-time estimate from the user's current location to a pinned
+    /// stop. Returns nil if either side is unknown (cache miss / no location
+    /// fix), in which case the chip just omits the walk pill.
+    private func walkMinutes(to stop: BusStop) -> Int? {
+        guard let coord = stop.coordinate,
+              let here = LocationService.shared.lastLocation else { return nil }
+        let stopLoc = CLLocation(latitude: coord.latitude, longitude: coord.longitude)
+        let meters = Int(here.distance(from: stopLoc))
+        return StopsAdapters.walkMinutes(forMeters: meters)
+    }
+
+    /// Minutes-from-now for an absolute arrival date, mirroring
+    /// `BusArrival.nextArrivalMinutes` rounding. Returns nil for past times.
+    private static func minutesFromNow(_ date: Date) -> Int? {
+        let s = date.timeIntervalSinceNow
+        guard s > -30 else { return nil }                // past, drop
+        if s < 30 { return 0 }                            // "Arr"
+        return Int((s / 60).rounded(.up))
+    }
+
+    /// Soonest next-arrival minutes at a pinned stop across all services.
+    /// Prefers live data; falls back to the persisted snapshot.
+    private func soonestETA(atPinnedStop code: String) -> Int? {
+        if let live = pinnedStopArrivals[code] {
+            return live.compactMap { $0.nextArrivalMinutes }.min()
+        }
+        if let snap = pinnedSnapshotByStop[code] {
+            return snap.values.compactMap { Self.minutesFromNow($0) }.min()
+        }
+        return nil
+    }
+
+    /// Soonest ETA for a service across pinned-stop arrivals (live or
+    /// snapshot) then nearby-stop arrivals.
+    private func soonestETA(forService serviceNo: String) -> Int? {
+        let liveHits = pinnedStopArrivals.values
+            .flatMap { $0 }
+            .filter { $0.serviceNo == serviceNo }
+            .compactMap { $0.nextArrivalMinutes }
+        let snapHits = pinnedSnapshotByStop.values
+            .compactMap { $0[serviceNo] }
+            .compactMap(Self.minutesFromNow)
+        let nearbyHits = viewModel.nearbyBusStops
+            .flatMap { $0.arrivals }
+            .filter { $0.serviceNo == serviceNo }
+            .compactMap { $0.nextArrivalMinutes }
+        return (liveHits + snapHits + nearbyHits).min()
     }
 
     private func refreshHeroWeather() async {
