@@ -99,8 +99,17 @@ The LTA key was pasted in chat history during development. **Rotate it before sh
 ## Caveats
 
 - **Bus stop codes are hardcoded** — the spec lists `Stop 84009` (Blk 416) and uses "Bedok Town Park" (mapped to `84029` as a best guess). The Home screen will show whatever services LTA actually returns for those codes; if the codes are wrong for current operations the cards will be empty and you'll see "Demo data".
-- **No location services** — the spec called for hardcoded "near Bedok" data; we honor that. The onboarding location permission card is a visual mock.
 - **No real-time MRT arrival data** in the station detail — LTA doesn't expose this publicly; the 2 / 5 · 9 minute values are static.
+
+## Location permissions
+
+Onboarding step 2 (`LocationStepView`) triggers the real `CLLocationManager` when-in-use prompt — no fake permission card. The Continue button adapts to the current `CLAuthorizationStatus`:
+
+- `.notDetermined` → "Allow location access" fires the system prompt; the view advances after the user responds.
+- `.denied` / `.restricted` → "Open Settings" deep-links to the app's Settings page; returning with permission granted auto-advances.
+- `.authorizedWhenInUse` / `.authorizedAlways` → "Continue" advances immediately.
+
+There is no skip/exit button on this step, per App Store Review Guideline 5.1.1(iv). The app does not block onboarding completion if the user denies — they just continue past the Settings hand-off.
 
 ## Built without
 
