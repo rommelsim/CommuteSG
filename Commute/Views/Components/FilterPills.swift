@@ -6,12 +6,22 @@ struct FilterPills<T: Hashable>: View {
     let options: [T]
     let label: (T) -> String
     @Binding var selection: T
+    /// When set, the chip equal to `smartDefault` renders with a ✨ prefix and
+    /// a blue→purple gradient background while it is also the active
+    /// selection — signalling "we picked this for you based on context."
+    /// Once the user picks a different filter the highlight disappears.
+    var smartDefault: T? = nil
 
     var body: some View {
         ScrollView(.horizontal, showsIndicators: false) {
             HStack(spacing: 8) {
                 ForEach(options, id: \.self) { opt in
-                    Pill(text: label(opt), isActive: opt == selection) {
+                    let isSmart = (smartDefault != nil && opt == smartDefault && opt == selection)
+                    Pill(
+                        text: label(opt),
+                        isActive: opt == selection,
+                        isSmart: isSmart
+                    ) {
                         selection = opt
                     }
                 }
@@ -26,30 +36,51 @@ struct FilterPills<T: Hashable>: View {
 private struct Pill: View {
     let text: String
     let isActive: Bool
+    var isSmart: Bool = false
     let action: () -> Void
 
     var body: some View {
         Button(action: action) {
-            // Wrap caller's `text` String through LocalizedStringKey so the
-            // filter labels ("Fastest", etc.) resolve through the catalog
-            // even though they arrive as variables, not literals.
-            Text(LocalizedStringKey(text))
-                .font(.appLabelMedium)
-                .padding(.vertical, 7)
-                .padding(.horizontal, 14)
-                .foregroundStyle(foreground)
-                .pillBackground(isActive: isActive)
+            HStack(spacing: 4) {
+                if isSmart {
+                    Text("✨")
+                        .font(.system(size: 11))
+                }
+                // Wrap caller's `text` String through LocalizedStringKey so the
+                // filter labels ("Fastest", etc.) resolve through the catalog
+                // even though they arrive as variables, not literals.
+                Text(LocalizedStringKey(text))
+                    .font(.appLabelMedium)
+            }
+            .padding(.vertical, 7)
+            .padding(.horizontal, 14)
+            .foregroundStyle(foreground)
+            .pillBackground(isActive: isActive, isSmart: isSmart)
         }
         .buttonStyle(PillButtonStyle())
     }
 
-    private var foreground: Color { isActive ? Color.appSuccessStrong : Color.appText }
+    private var foreground: Color {
+        if isSmart { return .white }
+        return isActive ? Color.appSuccessStrong : Color.appText
+    }
 }
 
 private extension View {
     @ViewBuilder
-    func pillBackground(isActive: Bool) -> some View {
-        if isActive {
+    func pillBackground(isActive: Bool, isSmart: Bool) -> some View {
+        if isSmart {
+            background(
+                Capsule().fill(
+                    LinearGradient(
+                        colors: [Color(red: 0.23, green: 0.37, blue: 0.93),
+                                 Color(red: 0.51, green: 0.29, blue: 0.87)],
+                        startPoint: .leading,
+                        endPoint: .trailing
+                    )
+                )
+            )
+        } else if isActive {
             tintedGlassCapsule(tint: Color.appSuccess.opacity(0.30))
         } else {
             glassCapsule()

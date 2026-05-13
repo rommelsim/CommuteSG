@@ -150,6 +150,14 @@ struct ProfileView: View {
 
     private var preferencesGroup: some View {
         ListGroup {
+            NavigationLink(value: HomeRoute.mySpend) {
+                ListRow(symbol: "creditcard.fill",
+                        symbolTint: Color.cfTextSecondary,
+                        label: "My commute spend",
+                        chevron: true)
+            }
+            .buttonStyle(.plain)
+
             ListRow(symbol: "bell.fill", symbolTint: Color.cfTextSecondary, label: "Notifications") {
                 ToggleSwitch(isOn: Binding(get: { appState.notificationsEnabled }, set: { appState.notificationsEnabled = $0 }))
             }

@@ -1,8 +1,6 @@
 import SwiftUI
 
 struct AlertsView: View {
-    /// Owned and refreshed by `MainTabView` so the tab-bar badge can read the
-    /// live disruption count without us needing a separate copy.
     let viewModel: AlertsViewModel
 
     /// Line the user tapped — drives the detail sheet.

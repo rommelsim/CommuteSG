@@ -3,8 +3,12 @@ import SwiftUI
 struct JourneyOptionCard: View {
     let option: JourneyOption
     var isBest: Bool = false
+    var isBestScore: Bool = false
+    var score: CommuteScore? = nil
     let departureMode: PlanViewModel.DepartureMode
     let action: () -> Void
+
+    private static let teal = Color(red: 0.08, green: 0.72, blue: 0.65)
 
     var body: some View {
         Button(action: action) {
@@ -12,18 +16,34 @@ struct JourneyOptionCard: View {
                 topRow
                 miniTimeline
                 metaRow
+                if let score {
+                    Divider().background(Color.cfHairline)
+                    CommuteScoreFooter(score: score)
+                }
             }
             .padding(Spacing.cardInner)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .background(isBest ? Color.appInfoBg : Color.appSurface)
+            .background(borderTintBackground)
             .overlay(
                 RoundedRectangle(cornerRadius: Radius.card, style: .continuous)
-                    .stroke(isBest ? Color.appInfo : Color.cfHairline,
-                            lineWidth: isBest ? 1.25 : 0.5)
+                    .stroke(borderStroke,
+                            lineWidth: (isBestScore || isBest) ? 1.25 : 0.5)
             )
             .clipShape(RoundedRectangle(cornerRadius: Radius.card, style: .continuous))
         }
         .buttonStyle(CardButtonStyle())
+    }
+
+    private var borderTintBackground: Color {
+        if isBestScore { return Self.teal.opacity(0.08) }
+        if isBest      { return Color.appInfoBg }
+        return Color.appSurface
+    }
+
+    private var borderStroke: Color {
+        if isBestScore { return Self.teal }
+        if isBest      { return Color.appInfo }
+        return Color.cfHairline
     }
 
     // MARK: - Top row: depart → arrive · duration / fare / Best
@@ -51,7 +71,15 @@ struct JourneyOptionCard: View {
                 .contentTransition(.numericText())
                 .animation(.snappy, value: option.durationMinutes)
             Spacer(minLength: 6)
-            if isBest {
+            if isBestScore {
+                Text("Best score")
+                    .font(.appMicroStrong)
+                    .padding(.horizontal, 7)
+                    .padding(.vertical, 2)
+                    .background(Self.teal)
+                    .foregroundStyle(Color.white)
+                    .clipShape(Capsule())
+            } else if isBest {
                 Text("Best")
                     .font(.appMicroStrong)
                     .padding(.horizontal, 7)

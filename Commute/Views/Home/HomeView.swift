@@ -7,8 +7,9 @@ struct HomeView: View {
     @Environment(\.openURL) private var openURL
     @Environment(\.scenePhase) private var scenePhase
     @Environment(TripCoordinator.self) private var trip
-    @Binding var selectedTab: MainTab
+    @State private var isPlannerOpen = false
     @State private var viewModel = HomeViewModel()
+    @State private var alertsVM = AlertsViewModel()
     @State private var navigation = HomeNavigation()
     @State private var editingPlace: SavedPlace.Kind?
     @State private var previewingShortcut: ShortcutPreviewState?
@@ -61,12 +62,39 @@ struct HomeView: View {
     var body: some View {
         @Bindable var nav = navigation
 
-        NavigationStack(path: $nav.path) {
+        ZStack {
+            homeContent(nav: nav)
+                .offset(y: isPlannerOpen ? -12 : 0)
+                .opacity(isPlannerOpen ? 0 : 1)
+                .allowsHitTesting(!isPlannerOpen)
+                .animation(.timingCurve(0.32, 0.72, 0, 1, duration: 0.35), value: isPlannerOpen)
+
+            PlannerMorphContainer(isOpen: $isPlannerOpen)
+                .environment(appState)
+                .allowsHitTesting(isPlannerOpen)
+                .zIndex(1)
+        }
+    }
+
+    private func openPlanner() {
+        withAnimation(.timingCurve(0.32, 0.72, 0, 1, duration: 0.35)) {
+            isPlannerOpen = true
+        }
+    }
+
+    @ViewBuilder
+    private func homeContent(nav: HomeNavigation) -> some View {
+        NavigationStack(path: Binding(get: { nav.path }, set: { nav.path = $0 })) {
             ScrollView {
                 VStack(alignment: .leading, spacing: 14) {
                     titleRow
+                    ambientAlertStripIfAny
                     activeTripBanner
-                    HomeHero(context: heroContext)
+                    Button { openPlanner() } label: {
+                        HomeHero(context: heroContext)
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityHint("Opens planner")
                     savedDestinations
                     pinnedStopsSection
                     nearbyTransitHeader
@@ -89,6 +117,7 @@ struct HomeView: View {
                 await refreshWeatherAndJourney()
                 await refreshPinnedStopETAs(force: false)
             }
+            .task { await alertsVM.refresh() }
             // Keep pinned ETAs live while Home is visible. 30 s matches the
             // LTA arrivals refresh cadence; the LTAService cache absorbs
             // redundant calls. Task is cancelled automatically on disappear.
@@ -147,7 +176,7 @@ struct HomeView: View {
                     address: state.address,
                     onPlanJourney: {
                         appState.pendingPlanDestination = state.address
-                        selectedTab = .plan
+                        openPlanner()
                     },
                     onEditAddress: {
                         editingPlace = state.kind
@@ -183,6 +212,18 @@ struct HomeView: View {
     /// the full active-trip card from the prototype — surfaces the current
     /// `TripPhase` and exposes a way to end the session. Will be replaced
     /// by the themed walking/riding/alight/etc. cards in later phases.
+    @ViewBuilder
+    private var ambientAlertStripIfAny: some View {
+        if let first = alertsVM.disruptions.first {
+            AmbientAlertStrip(
+                disruption: first,
+                extraCount: max(0, alertsVM.disruptions.count - 1),
+                onTap: { navigation.go(.alerts) }
+            )
+            .transition(.opacity.combined(with: .move(edge: .top)))
+        }
+    }
+
     @ViewBuilder
     private var activeTripBanner: some View {
         if let session = trip.activeSession {
@@ -247,10 +288,16 @@ struct HomeView: View {
 
     private var titleRow: some View {
         HStack(alignment: .top) {
-            Text("Where to?")
-                .font(.system(size: 22, weight: .bold))
-                .tracking(-0.3)
-                .foregroundStyle(Color.cfTextPrimary)
+            Button {
+                openPlanner()
+            } label: {
+                Text("Where to?")
+                    .font(.system(size: 22, weight: .bold))
+                    .tracking(-0.3)
+                    .foregroundStyle(Color.cfTextPrimary)
+            }
+            .buttonStyle(.plain)
+            .accessibilityHint("Opens planner")
             Spacer()
             Button {
                 navigation.go(.profile)
@@ -655,7 +702,7 @@ struct HomeView: View {
 
     private var heroContext: HeroContext {
         let name = appState.userName.trimmingCharacters(in: .whitespaces)
-        return HeroContext.make(
+        var ctx = HeroContext.make(
             time: timeContext,
             userName: name.isEmpty ? nil : name,
             homePlace: appState.savedPlaces.first { $0.kind == .home }?.address,
@@ -663,6 +710,14 @@ struct HomeView: View {
             journey: heroJourney,
             weather: heroWeather
         )
+        if let d = alertsVM.disruptions.first {
+            ctx.disruption = HeroContext.Disruption(
+                lineName: d.line.fullName,
+                lineCode: d.line.code,
+                stations: d.stations
+            )
+        }
+        return ctx
     }
 
     /// Refresh weather + journey suggestion together. Both are best-effort
@@ -976,6 +1031,10 @@ struct HomeView: View {
                 entries: viewModel.nearbyBusStops,
                 lastRefresh: viewModel.lastSuccessfulRefresh
             )
+        case .alerts:
+            AlertsView(viewModel: alertsVM)
+        case .mySpend:
+            MyCommuteSpendView()
         }
     }
 }
@@ -999,6 +1058,8 @@ enum HomeRoute: Hashable {
     case journey(JourneyOption, mode: PlanViewModel.DepartureMode, fromText: String, toText: String)
     case allMRTStations
     case allBusStops
+    case alerts
+    case mySpend
 }
 
 @Observable

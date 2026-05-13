@@ -32,7 +32,21 @@
       "Bash(DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer xcrun simctl list devices booted)",
       "Bash(DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer /Applications/Xcode.app/Contents/Developer/usr/bin/xcodebuild -project /Users/rommel/Documents/CommuteSG/Commute.xcodeproj -scheme Commute -destination 'platform=iOS Simulator,name=iPhone 17' -configuration Debug -derivedDataPath /tmp/commute-build build)",
       "Bash(xcodebuild -project Commute.xcodeproj -target CommuteWidgetExtension -configuration Debug -sdk iphonesimulator build)",
-      "Bash(DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer xcodebuild -project /Users/rommel/Documents/CommuteSG/Commute.xcodeproj -scheme Commute -destination 'platform=iOS Simulator,name=iPhone 17' -configuration Debug build)"
+      "Bash(DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer xcodebuild -project /Users/rommel/Documents/CommuteSG/Commute.xcodeproj -scheme Commute -destination 'platform=iOS Simulator,name=iPhone 17' -configuration Debug build)",
+      "Bash(DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer xcodebuild -project Commute.xcodeproj -scheme Commute -configuration Debug -destination 'platform=iOS Simulator,name=iPhone 16' build)",
+      "Bash(DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer xcodebuild -project Commute.xcodeproj -scheme Commute -configuration Debug -destination 'platform=iOS Simulator,id=BC43B76F-D38A-48E8-A293-30F49765810F' build)",
+      "Bash(xcrun simctl *)",
+      "Bash(DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer xcrun simctl boot BC43B76F-D38A-48E8-A293-30F49765810F)",
+      "Bash(DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer xcrun simctl install BC43B76F-D38A-48E8-A293-30F49765810F /Users/rommel/Library/Developer/Xcode/DerivedData/Commute-hbsjzcdzahjjwzecfpbsqykmutoj/Build/Products/Debug-iphonesimulator/Commute.app)",
+      "Bash(DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer xcrun simctl launch BC43B76F-D38A-48E8-A293-30F49765810F com.example.commute)",
+      "Bash(defaults read *)",
+      "Bash(DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer xcrun simctl launch BC43B76F-D38A-48E8-A293-30F49765810F com.rommelsim.commute)",
+      "Bash(DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer xcrun simctl io BC43B76F-D38A-48E8-A293-30F49765810F screenshot /tmp/home_before.png)",
+      "Bash(DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer xcrun simctl terminate BC43B76F-D38A-48E8-A293-30F49765810F com.rommelsim.commute)",
+      "Bash(DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer xcrun simctl get_app_container BC43B76F-D38A-48E8-A293-30F49765810F com.rommelsim.commute data)",
+      "Bash(/usr/libexec/PlistBuddy -c 'Set :commute.onboardingComplete true' __TRACKED_VAR__/Library/Preferences/com.rommelsim.commute.plist)",
+      "Bash(/usr/libexec/PlistBuddy -c 'Add :commute.onboardingComplete bool true' __TRACKED_VAR__/Library/Preferences/com.rommelsim.commute.plist)",
+      "Bash(DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer xcrun simctl io BC43B76F-D38A-48E8-A293-30F49765810F screenshot /tmp/home1.png)"
     ]
   }
 }

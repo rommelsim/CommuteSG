@@ -21,7 +21,7 @@ struct RootView: View {
     private var content: some View {
         Group {
             if appState.hasCompletedOnboarding {
-                MainTabView()
+                HomeView()
             } else {
                 OnboardingFlowView()
             }

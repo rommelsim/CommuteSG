@@ -66,6 +66,10 @@ struct SearchView: View {
             AllMRTStationsScreen()
         case .allBusStops:
             EmptyView()
+        case .alerts:
+            EmptyView()
+        case .mySpend:
+            EmptyView()
         }
     }
 

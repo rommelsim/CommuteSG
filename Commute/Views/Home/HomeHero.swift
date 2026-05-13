@@ -40,6 +40,18 @@ struct HeroContext {
     let prompt: String?
     let weather: Weather
     let journey: Journey?
+    /// Set when a live MRT disruption is in effect; flips the hero into its
+    /// "route affected" visual state (dark-red gradient, pulsing dot, headline
+    /// replaced by the disruption line). Note that we can't yet verify the
+    /// disruption affects *this user's* journey — that requires routing data
+    /// we don't have — so this fires on any active disruption.
+    var disruption: Disruption? = nil
+
+    struct Disruption {
+        let lineName: String
+        let lineCode: String
+        let stations: String
+    }
 
     struct Weather {
         let symbol: String   // SF Symbol name
@@ -146,11 +158,15 @@ struct HomeHero: View {
     private let bigOrbAmplitude: CGFloat = 22
     private let smallOrbAmplitude: CGFloat = 16
 
+    private var isDisrupted: Bool { context.disruption != nil }
+
     var body: some View {
         ZStack {
-            // Background gradient
+            // Background gradient — overridden to a dark-red wash when a
+            // disruption is active so the affected state reads at a glance.
             RoundedRectangle(cornerRadius: 20, style: .continuous)
-                .fill(context.time.palette.gradient)
+                .fill(isDisrupted ? AnyShapeStyle(disruptedGradient)
+                                  : AnyShapeStyle(context.time.palette.gradient))
 
             // Decorative orbs — drift with device tilt (liquid-glass feel)
             Circle()
@@ -180,7 +196,11 @@ struct HomeHero: View {
         // in light mode and gives a "raised" look in dark mode.
         .overlay(
             RoundedRectangle(cornerRadius: 20, style: .continuous)
-                .strokeBorder(Color.white.opacity(0.12), lineWidth: 0.5)
+                .strokeBorder(
+                    isDisrupted ? Color(red: 0.95, green: 0.30, blue: 0.30).opacity(0.65)
+                                : Color.white.opacity(0.12),
+                    lineWidth: isDisrupted ? 1 : 0.5
+                )
         )
         .shadow(color: Color(hex: 0x0F1729).opacity(0.40), radius: 14, x: 0, y: 12)
         .onAppear { tilt.start() }
@@ -193,7 +213,7 @@ struct HomeHero: View {
             topRow
                 .padding(.bottom, reduced ? 6 : 10)
 
-            Text(context.headline)
+            Text(headlineText)
                 .font(.system(size: reduced ? 20 : 26, weight: .bold))
                 .tracking(-0.3)
                 .foregroundStyle(Color.cfOnDarkPrimary)
@@ -213,11 +233,24 @@ struct HomeHero: View {
         }
     }
 
+    private var disruptedGradient: LinearGradient {
+        LinearGradient(
+            colors: [Color(red: 0.10, green: 0.05, blue: 0.07),
+                     Color(red: 0.42, green: 0.10, blue: 0.10)],
+            startPoint: .topLeading,
+            endPoint: .bottomTrailing
+        )
+    }
+
     private var topRow: some View {
         HStack(alignment: .center) {
             HStack(spacing: 6) {
-                LiveDot(color: Color(red: 0.46, green: 0.86, blue: 0.50))
-                Text(context.labelTop.uppercased())
+                if isDisrupted {
+                    PulsingDot(color: Color(red: 0.98, green: 0.35, blue: 0.35))
+                } else {
+                    LiveDot(color: Color(red: 0.46, green: 0.86, blue: 0.50))
+                }
+                Text((isDisrupted ? "Route affected" : context.labelTop).uppercased())
                     .font(.system(size: 10, weight: .bold))
                     .tracking(1.2)
                     .foregroundStyle(Color.cfOnDarkMuted)
@@ -238,9 +271,20 @@ struct HomeHero: View {
         }
     }
 
+    private var headlineText: String {
+        if let d = context.disruption { return "Disruption on \(d.lineName)" }
+        return context.headline
+    }
+
     @ViewBuilder
     private var subhead: some View {
-        if context.journey == nil, let prompt = context.prompt {
+        if let d = context.disruption {
+            Text(d.stations.isEmpty
+                 ? "Trains affected — tap for status"
+                 : "Trains between \(d.stations) — tap for status")
+                .font(.system(size: 13, weight: .medium))
+                .foregroundStyle(Color.cfOnDarkSecondary)
+        } else if context.journey == nil, let prompt = context.prompt {
             Text(prompt)
                 .font(.system(size: 14, weight: .medium))
                 .foregroundStyle(Color.cfOnDarkSecondary)
@@ -310,5 +354,23 @@ struct HomeHero: View {
         Rectangle()
             .fill(Color.white.opacity(0.10))
             .frame(width: 1)
+    }
+}
+
+private struct PulsingDot: View {
+    let color: Color
+    @State private var animating = false
+
+    var body: some View {
+        Circle()
+            .fill(color)
+            .frame(width: 7, height: 7)
+            .scaleEffect(animating ? 1.25 : 0.85)
+            .opacity(animating ? 1.0 : 0.55)
+            .animation(
+                .easeInOut(duration: 0.9).repeatForever(autoreverses: true),
+                value: animating
+            )
+            .onAppear { animating = true }
     }
 }

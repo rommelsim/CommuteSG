@@ -15,6 +15,39 @@ final class PlanViewModel {
             case .lessWalk: "Less walk"
             }
         }
+
+        /// Picks a default filter based on time-of-day context, per the
+        /// commuter-advocate handoff: morning + evening rush bias toward
+        /// speed, midday and weekend bias toward an easier trip.
+        static func smartDefault(for date: Date = Date()) -> Filter {
+            let cal = Calendar.current
+            let weekday = cal.component(.weekday, from: date)
+            let hour = cal.component(.hour, from: date)
+            let isWeekend = (weekday == 1 || weekday == 7)
+            if isWeekend { return .lessWalk }
+            switch hour {
+            case 0..<9:   return .fastest    // morning rush
+            case 9..<16:  return .lessWalk   // midday — easier trip
+            case 16..<20: return .fastest    // evening rush
+            default:      return .lessWalk   // late night
+            }
+        }
+
+        /// Short reason copy shown under the filter row when this filter was
+        /// the smart-default pick. Nil when there's no contextual rationale.
+        static func smartHint(for date: Date = Date()) -> String? {
+            let cal = Calendar.current
+            let weekday = cal.component(.weekday, from: date)
+            let hour = cal.component(.hour, from: date)
+            let isWeekend = (weekday == 1 || weekday == 7)
+            if isWeekend { return "Weekend — defaulted to Less walk" }
+            switch hour {
+            case 0..<9:   return "Morning rush — defaulted to Fastest"
+            case 9..<16:  return "Midday — defaulted to Less walk"
+            case 16..<20: return "Evening rush — defaulted to Fastest"
+            default:      return "Late night — defaulted to Less walk"
+            }
+        }
     }
 
     enum DepartureMode: Hashable {
@@ -66,7 +99,7 @@ final class PlanViewModel {
     /// otherwise non-MRT destinations all collapse to a Marina Bay fallback
     /// and produce identical routes regardless of what the user typed.
     private(set) var toCoordinate: CLLocationCoordinate2D?
-    var filter: Filter = .fastest
+    var filter: Filter = Filter.smartDefault()
     var departureMode: DepartureMode = .now
     private(set) var rawOptions: [JourneyOption]
 

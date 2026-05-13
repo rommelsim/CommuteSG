@@ -7,6 +7,7 @@ struct PlanView: View {
     @State private var editingField: JourneyPickerSheet.Field?
     @State private var customDate: Date = Date().addingTimeInterval(15 * 60)
     @State private var showingCustomDate = false
+    @State private var showingFareOverlay = false
 
     var body: some View {
         @Bindable var nav = navigation
@@ -17,6 +18,8 @@ struct PlanView: View {
                 VStack(spacing: Spacing.s16) {
                     header
                     fromToPanel
+                        .padding(.horizontal, Spacing.screen)
+                    checkFarePill
                         .padding(.horizontal, Spacing.screen)
                     if viewModel.hasAnyValue {
                         clearAllButton
@@ -40,9 +43,19 @@ struct PlanView: View {
                         FilterPills(
                             options: PlanViewModel.Filter.allCases,
                             label: { $0.label },
-                            selection: $vm.filter
+                            selection: $vm.filter,
+                            smartDefault: PlanViewModel.Filter.smartDefault()
                         )
                         .transition(.opacity.combined(with: .scale(scale: 0.96, anchor: .top)))
+                        if vm.filter == PlanViewModel.Filter.smartDefault(),
+                           let hint = PlanViewModel.Filter.smartHint() {
+                            Text(hint)
+                                .font(.system(size: 11, weight: .medium))
+                                .foregroundStyle(Color.cfTextSecondary)
+                                .padding(.horizontal, Spacing.screen)
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                                .transition(.opacity)
+                        }
                         options
                             .padding(.horizontal, Spacing.screen)
                             .padding(.top, 4)
@@ -80,6 +93,15 @@ struct PlanView: View {
             .sheet(isPresented: $showingCustomDate) {
                 customDateSheet
                     .presentationDetents([.height(360)])
+            }
+            .sheet(isPresented: $showingFareOverlay) {
+                FareOverlaySheet(
+                    fromText: viewModel.fromText,
+                    toText: viewModel.toText,
+                    fromCoord: viewModel.fromCoordinate,
+                    toCoord: viewModel.toCoordinate
+                )
+                .environment(appState)
             }
             .onChange(of: appState.pendingPlanDestination) { _, newValue in
                 if let target = newValue?.trimmingCharacters(in: .whitespaces), !target.isEmpty {
@@ -274,6 +296,29 @@ struct PlanView: View {
         .frame(maxWidth: .infinity)
     }
 
+    // MARK: - Fare overlay pill
+
+    private var checkFarePill: some View {
+        HStack {
+            Button {
+                showingFareOverlay = true
+            } label: {
+                HStack(spacing: 6) {
+                    Text("$")
+                        .font(.system(size: 13, weight: .bold))
+                    Text("Check a fare")
+                        .font(.system(size: 12, weight: .semibold))
+                }
+                .padding(.horizontal, 12)
+                .padding(.vertical, 7)
+                .background(Capsule().fill(Color.cfGlassFillSoft))
+                .foregroundStyle(Color.cfTextPrimary)
+            }
+            .buttonStyle(.plain)
+            Spacer()
+        }
+    }
+
     // MARK: - Time pill
 
     private var timePill: some View {
@@ -402,11 +447,18 @@ struct PlanView: View {
     // MARK: - Options
 
     private var options: some View {
-        VStack(spacing: Spacing.cardGap) {
-            ForEach(Array(viewModel.options.enumerated()), id: \.element.id) { idx, opt in
+        let opts = viewModel.options
+        let scores: [UUID: CommuteScore] = Dictionary(
+            uniqueKeysWithValues: opts.map { ($0.id, CommuteScore.make(for: $0, within: opts)) }
+        )
+        let bestScoreID: UUID? = scores.max(by: { $0.value.overall < $1.value.overall })?.key
+        return VStack(spacing: Spacing.cardGap) {
+            ForEach(Array(opts.enumerated()), id: \.element.id) { idx, opt in
                 JourneyOptionCard(
                     option: opt,
-                    isBest: idx == 0,
+                    isBest: idx == 0 && opt.id != bestScoreID,
+                    isBestScore: opt.id == bestScoreID,
+                    score: scores[opt.id],
                     departureMode: viewModel.departureMode
                 ) {
                     navigation.go(.journey(
@@ -450,6 +502,10 @@ struct PlanView: View {
             AllMRTStationsScreen()
         case .allBusStops:
             EmptyView()
+        case .alerts:
+            EmptyView()
+        case .mySpend:
+            MyCommuteSpendView()
         }
     }
 }
