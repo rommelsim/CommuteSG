@@ -6,6 +6,7 @@ struct HomeView: View {
     @Environment(AppState.self) private var appState
     @Environment(\.openURL) private var openURL
     @Environment(\.scenePhase) private var scenePhase
+    @Environment(TripCoordinator.self) private var trip
     @Binding var selectedTab: MainTab
     @State private var viewModel = HomeViewModel()
     @State private var navigation = HomeNavigation()
@@ -64,6 +65,7 @@ struct HomeView: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 14) {
                     titleRow
+                    activeTripBanner
                     HomeHero(context: heroContext)
                     savedDestinations
                     pinnedStopsSection
@@ -176,6 +178,72 @@ struct HomeView: View {
     }
 
     // MARK: - Sections
+
+    /// Slim banner shown while a trip is active. Phase-1 placeholder for
+    /// the full active-trip card from the prototype — surfaces the current
+    /// `TripPhase` and exposes a way to end the session. Will be replaced
+    /// by the themed walking/riding/alight/etc. cards in later phases.
+    @ViewBuilder
+    private var activeTripBanner: some View {
+        if let session = trip.activeSession {
+            HStack(spacing: 10) {
+                LiveDot(color: Color.appSuccess)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(phaseHeadline(session.phase))
+                        .font(.system(size: 13, weight: .bold))
+                        .foregroundStyle(Color.cfTextPrimary)
+                    Text("Bus \(session.service) → \(session.alightStopName)")
+                        .font(.system(size: 11, weight: .medium))
+                        .foregroundStyle(Color.cfTextSecondary)
+                        .lineLimit(1)
+                }
+                Spacer(minLength: 8)
+                #if DEBUG
+                // Manual phase stepper — stand-in for the production
+                // triggers (geofences, vehicle position, motion) until
+                // those are wired. Tap to advance walking → arriving →
+                // riding → alightNext → finalWalk → arrived → ends.
+                Button {
+                    trip.advanceToNext()
+                } label: {
+                    Image(systemName: "forward.fill")
+                        .font(.system(size: 11, weight: .bold))
+                        .foregroundStyle(Color.cfTextPrimary)
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 6)
+                        .background(Color.cfChipFill, in: Capsule())
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("Advance trip phase (debug)")
+                #endif
+                Button {
+                    trip.end()
+                } label: {
+                    Text("End")
+                        .font(.system(size: 12, weight: .semibold))
+                        .foregroundStyle(Color.appDanger)
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 6)
+                        .background(Color.appDangerBg, in: Capsule())
+                }
+                .buttonStyle(.plain)
+            }
+            .padding(12)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .glassSurface(cornerRadius: 14, fill: Color.cfGlassFillSoft)
+        }
+    }
+
+    private func phaseHeadline(_ phase: TripPhase) -> String {
+        switch phase {
+        case .walkingToStop: "Walking to your stop"
+        case .busArriving:   "Bus arriving"
+        case .riding:        "On the bus"
+        case .alightNext:    "Alight next stop"
+        case .finalWalk:     "Final stretch"
+        case .arrived:       "You've arrived"
+        }
+    }
 
     private var titleRow: some View {
         HStack(alignment: .top) {

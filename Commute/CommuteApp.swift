@@ -3,6 +3,7 @@ import SwiftUI
 @main
 struct CommuteApp: App {
     @State private var appState = AppState()
+    @State private var tripCoordinator = TripCoordinator()
     /// Lives for the lifetime of the process (App is created once per cold
     /// launch). The splash plays on every cold launch, but stays dismissed
     /// across backgrounding / re-foregrounding.
@@ -14,6 +15,7 @@ struct CommuteApp: App {
                 if hasShownSplash {
                     RootView()
                         .environment(appState)
+                        .environment(tripCoordinator)
                         .transition(.opacity)
                 } else {
                     SplashView(

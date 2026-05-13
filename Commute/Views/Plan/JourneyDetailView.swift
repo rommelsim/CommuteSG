@@ -6,11 +6,15 @@ struct JourneyDetailView: View {
     let fromText: String
     let toText: String
 
+    @Environment(TripCoordinator.self) private var trip
+    @Environment(\.dismiss) private var dismiss
+
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 20) {
                 summaryCard
                 stepsList
+                startTripCTA
             }
             .padding(.horizontal, Spacing.screen)
             .padding(.top, 16)
@@ -21,6 +25,47 @@ struct JourneyDetailView: View {
         .navigationTitle("Journey")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar(.hidden, for: .tabBar)
+    }
+
+    // MARK: - Start trip
+
+    /// First bus segment in this journey, if any. We can only start a trip
+    /// when there's a real bus leg — walk-only or rail-only journeys don't
+    /// fit the bus-tracking state machine yet.
+    private var firstBusService: String? {
+        for seg in option.segments {
+            if case .bus(let no, _) = seg { return no }
+        }
+        return nil
+    }
+
+    @ViewBuilder
+    private var startTripCTA: some View {
+        if let service = firstBusService {
+            Button {
+                let session = ActiveTripSession(
+                    service: service,
+                    boardingStopCode: "",
+                    boardingStopName: fromText,
+                    alightStopCode: "",
+                    alightStopName: toText,
+                    destinationLabel: toText
+                )
+                if trip.start(session) {
+                    dismiss()
+                }
+            } label: {
+                Text("Start trip")
+                    .font(.appBodyMedium)
+                    .foregroundStyle(.white)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 14)
+                    .background(Color.appInfo, in: RoundedRectangle(cornerRadius: Radius.card, style: .continuous))
+            }
+            .buttonStyle(.plain)
+            .disabled(trip.activeSession != nil)
+            .opacity(trip.activeSession == nil ? 1 : 0.5)
+        }
     }
 
     // MARK: - Summary card
