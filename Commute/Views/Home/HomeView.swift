@@ -5,6 +5,7 @@ import CoreLocation
 struct HomeView: View {
     @Environment(AppState.self) private var appState
     @Environment(\.openURL) private var openURL
+    @Environment(\.scenePhase) private var scenePhase
     @Binding var selectedTab: MainTab
     @State private var viewModel = HomeViewModel()
     @State private var navigation = HomeNavigation()
@@ -114,6 +115,20 @@ struct HomeView: View {
             }
             .onChange(of: appState.favoriteLineCodes) { _, _ in
                 publishPinnedSnapshot()
+            }
+            // When the app returns from background (e.g. overnight sleep),
+            // the in-flight `.task` loops are suspended and `Task.sleep`
+            // resumes from where it paused — meaning nearby/arrivals/hero
+            // data would stay frozen at last night's snapshot until the
+            // next manual pull-to-refresh. Re-run the full refresh chain
+            // on every active transition so morning launches show live data.
+            .onChange(of: scenePhase) { _, phase in
+                guard phase == .active else { return }
+                Task {
+                    await viewModel.refresh()
+                    await refreshWeatherAndJourney()
+                    await refreshPinnedStopETAs(force: true)
+                }
             }
             .navigationDestination(for: HomeRoute.self) { route in
                 destination(for: route)
@@ -487,6 +502,13 @@ struct HomeView: View {
         }
         .buttonStyle(CardButtonStyle(pressedScale: 0.95))
         .accessibilityLabel("Pinned stop \(stop.name)")
+        .contextMenu {
+            Button(role: .destructive) {
+                appState.toggleFavoriteBusStop(stop.id)
+            } label: {
+                Label("Unpin", systemImage: "star.slash")
+            }
+        }
     }
 
     private func pinnedBusChip(_ serviceNo: String) -> some View {
@@ -505,6 +527,13 @@ struct HomeView: View {
             eta.map { "Pinned bus \(serviceNo), arriving in \($0) minutes" }
                 ?? "Pinned bus \(serviceNo)"
         )
+        .contextMenu {
+            Button(role: .destructive) {
+                appState.toggleFavoriteLine(serviceNo)
+            } label: {
+                Label("Unpin", systemImage: "star.slash")
+            }
+        }
     }
 
     /// Trailing ETA chunk shared by both pinned chips. Three visual states:
