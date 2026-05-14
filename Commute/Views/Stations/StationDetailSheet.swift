@@ -13,7 +13,6 @@ struct StationDetailSheet: View {
     @Binding var snapshot: StationCrowdSnapshot?
 
     @State private var dragOffset: CGFloat = 0
-    @State private var sheetHeight: CGFloat = 1
     private let openCurve: Animation = .timingCurve(0.32, 0.72, 0, 1, duration: 0.42)
     private let dismissThreshold: CGFloat = 80
 
@@ -66,13 +65,6 @@ struct StationDetailSheet: View {
                 style: .continuous
             )
             .fill(Color.appSurface)
-        )
-        .background(
-            GeometryReader { geo in
-                Color.clear
-                    .onAppear { sheetHeight = geo.size.height }
-                    .onChange(of: geo.size.height) { _, h in sheetHeight = h }
-            }
         )
         .offset(y: max(0, dragOffset))
         .gesture(dragGesture)
@@ -262,10 +254,13 @@ struct StationDetailSheet: View {
     }
 
     private func dismiss() {
-        withAnimation(openCurve) {
-            snapshot = nil
-            dragOffset = 0
-        }
+        // Don't wrap in `withAnimation` here — the `.animation(openCurve,
+        // value: snapshot)` modifier on the body already animates the
+        // sheet's `.move` transition AND the backdrop opacity in a single
+        // transaction. A second `withAnimation` kicks off an overlapping
+        // animation that produces the post-dismiss flash.
+        snapshot = nil
+        dragOffset = 0
     }
 
     // MARK: - Helpers

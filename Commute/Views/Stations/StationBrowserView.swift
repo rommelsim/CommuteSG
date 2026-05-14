@@ -134,12 +134,12 @@ struct StationBrowserView: View {
     }
 
     /// Back-button handler. Closes the sheet first if one is open;
-    /// otherwise pops the view off the navigation stack.
+    /// otherwise pops the view off the navigation stack. The sheet's
+    /// own `.animation(_:value:)` modifier picks up the binding change
+    /// — no `withAnimation` here, that would overlap and flash.
     private func handleBack() {
         if pickedStation != nil {
-            withAnimation(.timingCurve(0.32, 0.72, 0, 1, duration: 0.42)) {
-                pickedStation = nil
-            }
+            pickedStation = nil
         } else {
             dismiss()
         }
