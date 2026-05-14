@@ -568,9 +568,9 @@ struct LiveTrackingView: View {
             isLive: isLive,
             crowdLevel: currentArrival.nextArrivalCrowd.label
         )
-        if LiveActivityManager.shared.current == nil {
-            trackingOnLockScreen = false
-        }
+        // No sync nil-check on `current` here — `start` is now async
+        // internally so it always returns before the activity exists.
+        // Failure path toasts a warning of its own.
     }
 
     private func stopLiveActivity() {

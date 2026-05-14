@@ -71,6 +71,9 @@ final class AppState {
     enum DeepLink: Hashable {
         /// Open the bus-stop detail screen for this stop code.
         case busStop(stopCode: String)
+        /// Open Live Tracking for a specific bus at a stop. Used by the
+        /// Live Activity tap target — `commute://track/<serviceNo>/<stopCode>`.
+        case tracking(serviceNo: String, stopCode: String)
     }
 
     var hasCompletedOnboarding: Bool {
@@ -177,7 +180,8 @@ final class AppState {
         //   - cleared an existing value → "removed" info
         //   - empty save when nothing was set → no toast (nothing happened)
         if !trimmed.isEmpty {
-            SoundEffect.playSuccess()
+            // No audio here — sound cues are reserved for pin / favourite
+            // toggles only, so the rest of the app stays quiet.
             Task { @MainActor in
                 ToastCenter.shared.show(.success("\(label) address saved"))
             }
@@ -197,9 +201,6 @@ final class AppState {
             favoriteBusStopCodes.insert(code)
             added = true
         }
-        // Stops get the fuller 3-note major-chord arpeggio (C-E-G) — distinct
-        // from the 2-note bus tone so you can tell by ear what you pinned.
-        SoundEffect.playStopPinToggle()
         Task { @MainActor in
             ToastCenter.shared.show(added
                 ? .success("Stop saved", symbol: "star.fill")
@@ -216,8 +217,6 @@ final class AppState {
             favoriteLineCodes.insert(code)
             added = true
         }
-        // Buses get the lighter 2-note rising-major-third arpeggio (C-E).
-        SoundEffect.playBusPinToggle()
         Task { @MainActor in
             ToastCenter.shared.show(added
                 ? .success("Bus \(code) saved", symbol: "star.fill")

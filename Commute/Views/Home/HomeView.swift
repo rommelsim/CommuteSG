@@ -732,6 +732,9 @@ struct HomeView: View {
             // a clean stack rather than below whatever the user was on.
             nav.popToRoot()
             nav.go(.busStop(stop, []))
+        case .tracking(let serviceNo, let stopCode):
+            nav.popToRoot()
+            nav.go(.trackingDeepLink(serviceNo: serviceNo, stopCode: stopCode))
         }
     }
 
@@ -1102,6 +1105,8 @@ struct HomeView: View {
             MRTStationDetailView(station: station)
         case .tracking(let busArrival, let busStopCode):
             LiveTrackingView(arrival: busArrival, busStopCode: busStopCode)
+        case .trackingDeepLink(let serviceNo, let stopCode):
+            TrackingDeepLinkView(serviceNo: serviceNo, stopCode: stopCode)
         case .journey(let opt, let mode, let from, let to):
             JourneyDetailView(option: opt, mode: mode, fromText: from, toText: to)
         case .allMRTStations:
@@ -1135,6 +1140,10 @@ enum HomeRoute: Hashable {
     case busStop(BusStop, [BusArrival])
     case mrt(MRTStation)
     case tracking(BusArrival, busStopCode: String?)
+    /// Deep-link variant of `.tracking` — used by the Live Activity tap
+    /// target. Carries only ids; the destination view fetches the live
+    /// `BusArrival` on appear.
+    case trackingDeepLink(serviceNo: String, stopCode: String)
     case journey(JourneyOption, mode: PlanViewModel.DepartureMode, fromText: String, toText: String)
     case allMRTStations
     case allBusStops

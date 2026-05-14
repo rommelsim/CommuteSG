@@ -48,6 +48,14 @@ struct CommuteApp: App {
             let code = String(url.path.dropFirst())
             guard !code.isEmpty else { return }
             appState.pendingDeepLink = .busStop(stopCode: code)
+        case "track":
+            // Path is "/<serviceNo>/<stopCode>". Split and validate both.
+            let parts = url.path.split(separator: "/", omittingEmptySubsequences: true)
+            guard parts.count >= 2 else { return }
+            let serviceNo = String(parts[0])
+            let stopCode = String(parts[1])
+            guard !serviceNo.isEmpty, !stopCode.isEmpty else { return }
+            appState.pendingDeepLink = .tracking(serviceNo: serviceNo, stopCode: stopCode)
         default:
             break
         }

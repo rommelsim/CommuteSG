@@ -215,10 +215,8 @@ struct FareEndpointPicker: View {
 
     private func pick(_ endpoint: FareEndpoint) {
         onPick(endpoint)
-        // Subtle confirmation that the fare has just been recomputed for
-        // the new endpoint pair — paired with the toast/haptic at the
-        // call sites the user already gets.
-        SoundEffect.playSuccess()
+        // Silent — audio cues are reserved for pin / favourite toggles
+        // (see `SoundEffect.playStopPinToggle` / `playBusPinToggle`).
         dismiss()
     }
 }

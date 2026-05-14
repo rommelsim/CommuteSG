@@ -40,11 +40,66 @@ final class LiveActivityManager {
         isLive: Bool,
         crowdLevel: String
     ) {
-        // Only one tracking activity at a time — replace any in-flight one.
-        if current != nil { Task { await endActiveActivity() } }
-
         guard isAvailable else { return }
 
+        // Hand off to a Task so we can await the end-all step before
+        // requesting the new activity. Without the await, a fire-and-
+        // forget end + immediate request leaves *both* activities live
+        // and iOS picks one to display (usually the older one), so
+        // tapping "track 191" looked like it was still tracking 91.
+        Task { @MainActor in
+            await endAllBusActivities()
+            await requestBusActivity(
+                serviceNo: serviceNo,
+                destination: destination,
+                stopName: stopName,
+                stopCode: stopCode,
+                etaMinutes: etaMinutes,
+                followingMinutes: followingMinutes,
+                isLive: isLive,
+                crowdLevel: crowdLevel
+            )
+        }
+    }
+
+    /// End every in-flight `BusTrackingActivity`, not just `current`. iOS
+    /// can hold multiple activities of the same type from earlier sessions
+    /// (e.g. a force-quit while tracking) — `current` only knows about the
+    /// one this process started, so we sweep them all to keep the lock
+    /// screen in a single coherent state.
+    ///
+    /// `.immediate` is a *hint*: the system removes the activity ASAP but
+    /// the await on `end(...)` returns once the request is accepted, not
+    /// once the activity is fully gone. Without the trailing sleep, the
+    /// next `Activity.request(...)` races and we end up with both the
+    /// outgoing and incoming activity alive — Dynamic Island then sticks
+    /// on the old one and the lock screen stacks them both.
+    private func endAllBusActivities() async {
+        let inFlight = Activity<BusTrackingActivity>.activities
+        guard !inFlight.isEmpty else {
+            current = nil
+            return
+        }
+        for activity in inFlight {
+            await activity.end(nil, dismissalPolicy: .immediate)
+        }
+        current = nil
+        // Give the system a beat to actually tear them down before we
+        // request a new one. 250ms is enough in practice; shorter intervals
+        // (50–100ms) still occasionally produce ghost activities on device.
+        try? await Task.sleep(nanoseconds: 250_000_000)
+    }
+
+    private func requestBusActivity(
+        serviceNo: String,
+        destination: String,
+        stopName: String,
+        stopCode: String,
+        etaMinutes: Int?,
+        followingMinutes: [Int],
+        isLive: Bool,
+        crowdLevel: String
+    ) async {
         let attributes = BusTrackingActivity(
             serviceNo: serviceNo,
             destination: destination,
@@ -58,9 +113,16 @@ final class LiveActivityManager {
             crowdLevel: crowdLevel,
             lastUpdated: Date()
         )
+        // Max relevance — when more than one activity of this type is
+        // momentarily alive (race with a still-tearing-down predecessor,
+        // or a stale one from a force-quit), the Dynamic Island picks
+        // whichever has the highest score. Without this, iOS often pins
+        // the older activity in the DI even after the new lock-screen
+        // banner appears.
         let content = ActivityContent(
             state: state,
-            staleDate: Date().addingTimeInterval(15 * 60)
+            staleDate: Date().addingTimeInterval(15 * 60),
+            relevanceScore: 100
         )
 
         do {
@@ -69,20 +131,18 @@ final class LiveActivityManager {
                 content: content,
                 pushType: nil
             )
-            // New tracking session — clear any past "arrived" dedup so the
-            // next 0-min update can fire its alert.
             NotificationService.shared.resetArrivalDedup(
                 forServiceNo: serviceNo,
                 stopCode: stopCode
             )
-            SoundEffect.playSuccess()
+            // No chime / warning tone — audio cues are reserved for pin
+            // toggles only; the toast carries the feedback here.
             ToastCenter.shared.show(.success(
                 "Tracking Bus \(serviceNo) on Lock Screen",
                 symbol: "bolt.heart.fill"
             ))
         } catch {
             current = nil
-            SoundEffect.playWarning()
             ToastCenter.shared.show(.warning(
                 "Couldn't start Live Activity",
                 symbol: "exclamationmark.triangle.fill"

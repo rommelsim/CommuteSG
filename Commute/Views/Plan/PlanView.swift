@@ -496,6 +496,8 @@ struct PlanView: View {
             MRTStationDetailView(station: station)
         case .tracking(let arrival, let busStopCode):
             LiveTrackingView(arrival: arrival, busStopCode: busStopCode)
+        case .trackingDeepLink(let serviceNo, let stopCode):
+            TrackingDeepLinkView(serviceNo: serviceNo, stopCode: stopCode)
         case .journey(let opt, let mode, let from, let to):
             JourneyDetailView(option: opt, mode: mode, fromText: from, toText: to)
         case .allMRTStations:

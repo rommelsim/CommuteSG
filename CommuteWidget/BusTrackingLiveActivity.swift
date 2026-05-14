@@ -39,8 +39,12 @@ struct BusTrackingLiveActivity: Widget {
                         )
                         BusCrowdRow(crowdLevel: context.state.crowdLevel)
                     }
-                    .padding(.horizontal, 4)
-                    .padding(.bottom, 2)
+                    // Extra horizontal inset (vs the prior 4pt) keeps the
+                    // bottom row clear of the Dynamic Island's curved
+                    // bottom corners, which were clipping the trailing
+                    // crowd label.
+                    .padding(.horizontal, 10)
+                    .padding(.bottom, 4)
                 }
             } compactLeading: {
                 // Just the bus pill — stop name was getting truncated to
@@ -69,16 +73,19 @@ struct BusTrackingLiveActivity: Widget {
         return m <= 0 ? "ARR" : "\(m)m"
     }
 
-    /// Deep-link tap target. Lock-screen tap and Dynamic Island tap (in
-    /// every state — compact/minimal/expanded — when set on `.widgetURL`)
-    /// route to `commute://stop/<stopCode>`. The main app's `.onOpenURL`
-    /// pushes the bus-stop detail screen, which is one tap from live
-    /// tracking — full reconstruction of a `BusArrival` from snapshot
-    /// data isn't worth the complexity.
+    /// Deep-link tap target. Tap routes to
+    /// `commute://track/<serviceNo>/<stopCode>` so the user lands directly
+    /// on Live Tracking for *this* bus, not just the stop. The app's
+    /// `TrackingDeepLinkView` fetches arrivals on appear and finds the
+    /// matching `BusArrival`. Falls back to the stop-detail URL when the
+    /// stop code is missing (rare — host targets passed `""` for stopCode
+    /// before this was wired through).
     private func deepLinkURL(for context: ActivityViewContext<BusTrackingActivity>) -> URL? {
         let code = context.attributes.stopCode
+        let service = context.attributes.serviceNo
         guard !code.isEmpty else { return URL(string: "commute://") }
-        return URL(string: "commute://stop/\(code)")
+        guard !service.isEmpty else { return URL(string: "commute://stop/\(code)") }
+        return URL(string: "commute://track/\(service)/\(code)")
     }
 }
 
@@ -323,22 +330,29 @@ private struct BusCrowdRow: View {
     }
 
     var body: some View {
-        HStack(spacing: 8) {
-            Text("Bus crowd")
-                .font(.system(size: 9))
-                .foregroundStyle(.white.opacity(0.35))
-            HStack(spacing: 3) {
-                ForEach(0..<3) { i in
-                    RoundedRectangle(cornerRadius: 2, style: .continuous)
-                        .fill(i < filledCount ? labelColor.opacity(0.85)
-                                              : Color.white.opacity(0.10))
-                        .frame(width: 13, height: 13)
+        // Wrap in a wider HStack with side spacers so the row doesn't get
+        // clipped by the Dynamic Island's rounded bottom-right corner when
+        // expanded. The bottom region's usable width tapers near the edges
+        // — flush-left + Spacer was pushing "Standing" / "Seats free" into
+        // the curved cutout and chopping the trailing characters.
+        HStack(spacing: 0) {
+            Spacer().frame(width: 8)
+            HStack(spacing: 6) {
+                HStack(spacing: 3) {
+                    ForEach(0..<3) { i in
+                        RoundedRectangle(cornerRadius: 2, style: .continuous)
+                            .fill(i < filledCount ? labelColor.opacity(0.85)
+                                                  : Color.white.opacity(0.10))
+                            .frame(width: 11, height: 11)
+                    }
                 }
+                Text(label)
+                    .font(.system(size: 10, weight: .medium))
+                    .foregroundStyle(labelColor)
+                    .lineLimit(1)
+                    .fixedSize(horizontal: true, vertical: false)
             }
-            Text(label)
-                .font(.system(size: 10, weight: .medium))
-                .foregroundStyle(labelColor)
-            Spacer(minLength: 0)
+            Spacer(minLength: 8)
         }
     }
 }
