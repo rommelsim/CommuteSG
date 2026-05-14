@@ -46,7 +46,9 @@
       "Bash(DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer xcrun simctl get_app_container BC43B76F-D38A-48E8-A293-30F49765810F com.rommelsim.commute data)",
       "Bash(/usr/libexec/PlistBuddy -c 'Set :commute.onboardingComplete true' __TRACKED_VAR__/Library/Preferences/com.rommelsim.commute.plist)",
       "Bash(/usr/libexec/PlistBuddy -c 'Add :commute.onboardingComplete bool true' __TRACKED_VAR__/Library/Preferences/com.rommelsim.commute.plist)",
-      "Bash(DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer xcrun simctl io BC43B76F-D38A-48E8-A293-30F49765810F screenshot /tmp/home1.png)"
+      "Bash(DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer xcrun simctl io BC43B76F-D38A-48E8-A293-30F49765810F screenshot /tmp/home1.png)",
+      "Bash(DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer xcodebuild -project Commute.xcodeproj -scheme Commute -sdk iphonesimulator -destination 'platform=iOS Simulator,name=iPhone 15' -configuration Debug build)",
+      "Bash(DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer xcodebuild -project Commute.xcodeproj -scheme Commute -sdk iphonesimulator -destination 'id=AF8E14C9-3A9E-430A-B086-1CA0EF01CCC7' -configuration Debug build)"
     ]
   }
 }

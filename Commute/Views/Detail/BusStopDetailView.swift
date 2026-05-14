@@ -11,6 +11,8 @@ struct BusStopDetailView: View {
     @State private var lastRefresh: Date? = nil
     @State private var filter: BusFilter = .all
     @State private var mapPosition: MapCameraPosition = .automatic
+    @State private var pingArrival: BusArrival?
+    @State private var pingThreshold: ArrivalPingThreshold = .twoMinutes
 
     enum BusFilter: String, CaseIterable, Hashable {
         case all, saved
@@ -74,6 +76,16 @@ struct BusStopDetailView: View {
         .navigationBarBackButtonHidden(true)
         .toolbar(.hidden, for: .navigationBar)
         .task { await refresh(force: false) }
+        .sheet(item: $pingArrival) { arrival in
+            ArrivalPingSheet(
+                serviceNo: arrival.serviceNo,
+                stopName: stop.name,
+                selection: $pingThreshold,
+                onConfirm: { threshold in
+                    Task { await scheduleArrivalPing(for: arrival, threshold: threshold) }
+                }
+            )
+        }
         .refreshable { await refresh(force: true) }
     }
 
@@ -316,6 +328,13 @@ struct BusStopDetailView: View {
                         )
                     }
                     .buttonStyle(.plain)
+                    .contextMenu {
+                        Button {
+                            pingArrival = arrival
+                        } label: {
+                            Label("Ping me when arriving", systemImage: "bell.badge")
+                        }
+                    }
                     if idx < filteredArrivals.count - 1 {
                         Divider().background(Color.cfHairline)
                     }
@@ -333,6 +352,35 @@ struct BusStopDetailView: View {
         switch filter {
         case .all: arrivals
         case .saved: arrivals.filter { appState.favoriteLineCodes.contains($0.serviceNo) }
+        }
+    }
+
+    /// Ping handler for the long-press → "Ping me when arriving" affordance.
+    /// We post immediately so the user gets confirmation; in production a
+    /// background poller would arm and only fire when the bus crosses the
+    /// chosen threshold.
+    private func scheduleArrivalPing(for arrival: BusArrival, threshold: ArrivalPingThreshold) async {
+        let ns = NotificationService.shared
+        switch threshold {
+        case .twoMinutes:
+            await ns.postPing(serviceNo: arrival.serviceNo, stopName: stop.name,
+                              stopCode: stop.id, thresholdMinutes: 2, walkMinutes: 4,
+                              interruption: .active)
+        case .oneMinute:
+            await ns.postPing(serviceNo: arrival.serviceNo, stopName: stop.name,
+                              stopCode: stop.id, thresholdMinutes: 1, walkMinutes: 4,
+                              interruption: .timeSensitive)
+        case .both:
+            await ns.postPing(serviceNo: arrival.serviceNo, stopName: stop.name,
+                              stopCode: stop.id, thresholdMinutes: 2, walkMinutes: 4,
+                              interruption: .active)
+            await ns.postPing(serviceNo: arrival.serviceNo, stopName: stop.name,
+                              stopCode: stop.id, thresholdMinutes: 1, walkMinutes: 4,
+                              interruption: .timeSensitive)
+        case .custom:
+            await ns.postPing(serviceNo: arrival.serviceNo, stopName: stop.name,
+                              stopCode: stop.id, thresholdMinutes: 3, walkMinutes: 4,
+                              interruption: .timeSensitive)
         }
     }
 

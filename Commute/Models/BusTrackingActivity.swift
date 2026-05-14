@@ -13,6 +13,11 @@ struct BusTrackingActivity: ActivityAttributes {
         /// Minutes until the bus reaches the user's stop. `nil` means we
         /// don't have a live ETA right now (LTA dropout / scheduled).
         public var etaMinutes: Int?
+        /// Subsequent arrivals after the next one — used to populate the
+        /// THEN / AFTER slots in the expanded Dynamic Island view. LTA
+        /// returns up to two follow-ups (`NextBus2`, `NextBus3`); we only
+        /// surface what's available, never pad.
+        public var followingMinutes: [Int]
         /// Whether the displayed ETA came from real-time GPS or schedule.
         public var isLive: Bool
         /// Current crowd state — `seats`, `standing`, `limited`, `unknown`.
@@ -22,11 +27,13 @@ struct BusTrackingActivity: ActivityAttributes {
 
         public init(
             etaMinutes: Int?,
+            followingMinutes: [Int] = [],
             isLive: Bool,
             crowdLevel: String,
             lastUpdated: Date
         ) {
             self.etaMinutes = etaMinutes
+            self.followingMinutes = followingMinutes
             self.isLive = isLive
             self.crowdLevel = crowdLevel
             self.lastUpdated = lastUpdated

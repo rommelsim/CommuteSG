@@ -36,6 +36,7 @@ final class LiveActivityManager {
         stopName: String,
         stopCode: String,
         etaMinutes: Int?,
+        followingMinutes: [Int] = [],
         isLive: Bool,
         crowdLevel: String
     ) {
@@ -52,6 +53,7 @@ final class LiveActivityManager {
         )
         let state = BusTrackingActivity.State(
             etaMinutes: etaMinutes,
+            followingMinutes: followingMinutes,
             isLive: isLive,
             crowdLevel: crowdLevel,
             lastUpdated: Date()
@@ -88,10 +90,11 @@ final class LiveActivityManager {
         }
     }
 
-    func update(etaMinutes: Int?, isLive: Bool, crowdLevel: String) async {
+    func update(etaMinutes: Int?, followingMinutes: [Int] = [], isLive: Bool, crowdLevel: String) async {
         guard let activity = current else { return }
         let state = BusTrackingActivity.State(
             etaMinutes: etaMinutes,
+            followingMinutes: followingMinutes,
             isLive: isLive,
             crowdLevel: crowdLevel,
             lastUpdated: Date()
@@ -125,5 +128,95 @@ final class LiveActivityManager {
         await activity.end(content, dismissalPolicy: .immediate)
         current = nil
         ToastCenter.shared.show(.info("Tracking stopped", symbol: "bolt.slash"))
+    }
+
+    // MARK: - Train arrival
+
+    private(set) var currentTrain: Activity<TrainArrivalActivity>?
+
+    func startTrain(
+        stationCode: String,
+        stationName: String,
+        lineName: String,
+        towardsDestination: String,
+        initialState: TrainArrivalActivity.State
+    ) {
+        guard isAvailable else { return }
+        if currentTrain != nil { Task { await endTrain() } }
+
+        let attributes = TrainArrivalActivity(
+            stationCode: stationCode,
+            stationName: stationName,
+            lineName: lineName,
+            towardsDestination: towardsDestination
+        )
+        let content = ActivityContent(
+            state: initialState,
+            staleDate: Date().addingTimeInterval(120)
+        )
+        do {
+            currentTrain = try Activity<TrainArrivalActivity>.request(
+                attributes: attributes,
+                content: content,
+                pushType: nil  // local-update fallback; switch to .token when backend exists
+            )
+        } catch {
+            currentTrain = nil
+        }
+    }
+
+    func updateTrain(state: TrainArrivalActivity.State) async {
+        guard let activity = currentTrain else { return }
+        await activity.update(ActivityContent(
+            state: state,
+            staleDate: Date().addingTimeInterval(120)
+        ))
+    }
+
+    func endTrain() async {
+        guard let activity = currentTrain else { return }
+        await activity.end(nil, dismissalPolicy: .immediate)
+        currentTrain = nil
+    }
+
+    // MARK: - Journey
+
+    private(set) var currentJourney: Activity<JourneyActivity>?
+
+    func startJourney(
+        destinationName: String,
+        initialState: JourneyActivity.State
+    ) {
+        guard isAvailable else { return }
+        if currentJourney != nil { Task { await endJourney() } }
+
+        let attributes = JourneyActivity(destinationName: destinationName)
+        let content = ActivityContent(
+            state: initialState,
+            staleDate: Date().addingTimeInterval(300)
+        )
+        do {
+            currentJourney = try Activity<JourneyActivity>.request(
+                attributes: attributes,
+                content: content,
+                pushType: nil
+            )
+        } catch {
+            currentJourney = nil
+        }
+    }
+
+    func updateJourney(state: JourneyActivity.State) async {
+        guard let activity = currentJourney else { return }
+        await activity.update(ActivityContent(
+            state: state,
+            staleDate: Date().addingTimeInterval(300)
+        ))
+    }
+
+    func endJourney() async {
+        guard let activity = currentJourney else { return }
+        await activity.end(nil, dismissalPolicy: .immediate)
+        currentJourney = nil
     }
 }

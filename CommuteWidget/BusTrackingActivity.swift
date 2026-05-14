@@ -10,23 +10,21 @@ struct BusTrackingActivity: ActivityAttributes {
     public typealias ContentState = State
 
     public struct State: Codable, Hashable {
-        /// Minutes until the bus reaches the user's stop. `nil` means we
-        /// don't have a live ETA right now (LTA dropout / scheduled).
         public var etaMinutes: Int?
-        /// Whether the displayed ETA came from real-time GPS or schedule.
+        public var followingMinutes: [Int]
         public var isLive: Bool
-        /// Current crowd state — `seats`, `standing`, `limited`, `unknown`.
         public var crowdLevel: String
-        /// Last time the main app pushed a content-state update.
         public var lastUpdated: Date
 
         public init(
             etaMinutes: Int?,
+            followingMinutes: [Int] = [],
             isLive: Bool,
             crowdLevel: String,
             lastUpdated: Date
         ) {
             self.etaMinutes = etaMinutes
+            self.followingMinutes = followingMinutes
             self.isLive = isLive
             self.crowdLevel = crowdLevel
             self.lastUpdated = lastUpdated

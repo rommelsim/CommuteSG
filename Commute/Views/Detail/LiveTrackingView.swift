@@ -560,10 +560,11 @@ struct LiveTrackingView: View {
     private func startLiveActivity() {
         LiveActivityManager.shared.start(
             serviceNo: currentArrival.serviceNo,
-            destination: currentArrival.destination,
+            destination: liveActivityDestination,
             stopName: stopName ?? (busStopCode ?? "your stop"),
             stopCode: busStopCode ?? "",
             etaMinutes: currentArrival.nextArrivalMinutes,
+            followingMinutes: liveActivityFollowingMinutes,
             isLive: isLive,
             crowdLevel: currentArrival.nextArrivalCrowd.label
         )
@@ -581,10 +582,29 @@ struct LiveTrackingView: View {
         Task {
             await LiveActivityManager.shared.update(
                 etaMinutes: currentArrival.nextArrivalMinutes,
+                followingMinutes: liveActivityFollowingMinutes,
                 isLive: isLive,
                 crowdLevel: currentArrival.nextArrivalCrowd.label
             )
         }
+    }
+
+    /// Resolve the destination stop code (e.g. "84009") to its human-readable
+    /// name (e.g. "Bedok Interchange") so the Live Activity surface doesn't
+    /// show raw numeric codes — falls back to the existing label only when
+    /// the repository hasn't loaded the stop yet.
+    private var liveActivityDestination: String {
+        if let code = currentArrival.destinationCode,
+           let name = BusStopNameCache.shared.name(forCode: code), !name.isEmpty {
+            return name
+        }
+        return currentArrival.destination
+    }
+
+    /// Just the immediately-following arrival today; LTA returns up to 2
+    /// follow-ups but `BusArrival` only carries one (`nextBus2`).
+    private var liveActivityFollowingMinutes: [Int] {
+        [currentArrival.followingArrivalMinutes].compactMap { $0 }
     }
 
     // MARK: - Data

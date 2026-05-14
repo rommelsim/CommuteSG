@@ -14,6 +14,10 @@ final class NotificationService {
     static let shared = NotificationService()
 
     private let center = UNUserNotificationCenter.current()
+
+    /// Category id for the arrival ping pair ("Track live" / "Dismiss"),
+    /// matching the surfaces-v2 prototype's notification action row.
+    static let pingCategoryID = "commute.ping.actions"
     /// Per-process dedup so we don't ping the user repeatedly for the
     /// same arriving bus or the same live disruption across refreshes.
     private var firedArrivals = Set<String>()
@@ -33,7 +37,31 @@ final class NotificationService {
     /// Call once on app launch. If the user has previously granted
     /// permission, this is a no-op; if denied, we leave them in Settings.
     func bootstrap() async {
+        registerCategories()
         _ = await center.notificationSettings()
+    }
+
+    /// Register the ping-action category once. Called from `bootstrap()` so
+    /// "Track live" / "Dismiss" buttons appear on every ping notification
+    /// without each call site having to opt in.
+    private func registerCategories() {
+        let trackLive = UNNotificationAction(
+            identifier: "ping.trackLive",
+            title: "Track live",
+            options: [.foreground]
+        )
+        let dismiss = UNNotificationAction(
+            identifier: "ping.dismiss",
+            title: "Dismiss",
+            options: [.destructive]
+        )
+        let category = UNNotificationCategory(
+            identifier: Self.pingCategoryID,
+            actions: [trackLive, dismiss],
+            intentIdentifiers: [],
+            options: []
+        )
+        center.setNotificationCategories([category])
     }
 
     /// Request OS-level permission. Returns whether the user granted it.
@@ -158,6 +186,40 @@ final class NotificationService {
             content: content,
             trigger: nil
         )
+        try? await center.add(request)
+    }
+
+    /// Schedule an arrival-ping notification for a single bus at the user's
+    /// chosen lead time. Pass `interruption: .timeSensitive` for the 1-min
+    /// "leave now" variant; `.active` for the 2-min "start walking" variant.
+    /// Currently fires immediately when called — the caller (poller) is
+    /// responsible for invoking only when `EstimatedArrival ≤ threshold`.
+    func postPing(
+        serviceNo: String,
+        stopName: String,
+        stopCode: String,
+        thresholdMinutes: Int,
+        walkMinutes: Int,
+        interruption: UNNotificationInterruptionLevel
+    ) async {
+        guard userOptedIn else { return }
+        guard await ensurePermission() else { return }
+
+        let content = UNMutableNotificationContent()
+        if thresholdMinutes <= 1 {
+            content.title = "Bus \(serviceNo) — 1 minute away"
+            content.body = "Leave now or you'll miss it."
+        } else {
+            content.title = "Bus \(serviceNo) arriving soon"
+            content.body = "\(thresholdMinutes) minutes to \(stopName). Start walking — \(walkMinutes) min walk."
+        }
+        content.sound = .default
+        content.interruptionLevel = interruption
+        content.threadIdentifier = "bus.\(serviceNo)"
+        content.categoryIdentifier = Self.pingCategoryID
+
+        let id = "ping.\(serviceNo).\(stopCode).\(thresholdMinutes)"
+        let request = UNNotificationRequest(identifier: id, content: content, trigger: nil)
         try? await center.add(request)
     }
 

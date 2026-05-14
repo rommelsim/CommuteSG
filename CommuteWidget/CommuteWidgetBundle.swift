@@ -16,6 +16,9 @@ struct CommuteWidgetBundle: WidgetBundle {
         //MRTStatusWidget()
         NextOutTheDoorWidget()
         PinnedItemsWidget()
+        PinnedAccessoryWidget()
         BusTrackingLiveActivity()
+        TrainArrivalLiveActivity()
+        JourneyLiveActivity()
     }
 }

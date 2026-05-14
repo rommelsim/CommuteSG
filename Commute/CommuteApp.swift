@@ -30,6 +30,26 @@ struct CommuteApp: App {
                 }
             }
             .task { await NotificationService.shared.bootstrap() }
+            .onOpenURL { url in
+                handleDeepLink(url)
+            }
+        }
+    }
+
+    /// Routes `commute://` URLs into in-app navigation. Today only the
+    /// Live Activity ships these — `commute://stop/<code>` opens the
+    /// bus-stop detail view for that stop. HomeView observes
+    /// `appState.pendingDeepLink` and performs the actual push.
+    private func handleDeepLink(_ url: URL) {
+        guard url.scheme == "commute" else { return }
+        switch url.host {
+        case "stop":
+            // Path is "/<code>" — strip the leading slash.
+            let code = String(url.path.dropFirst())
+            guard !code.isEmpty else { return }
+            appState.pendingDeepLink = .busStop(stopCode: code)
+        default:
+            break
         }
     }
 

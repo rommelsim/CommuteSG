@@ -17,6 +17,11 @@ struct HomeView: View {
     @State private var mrtSheet: MRTStation?
     @State private var heroWeather: HeroContext.Weather = HeroContext.Weather(symbol: "sun.max.fill", text: "—")
     @State private var heroJourney: HeroContext.Journey?
+    /// Set after the user accepts the in-card reroute CTA. Drives the
+    /// HomeHero into its `Rerouted` (dark green) state and pushes a
+    /// matching update to any in-flight Journey live activity per the
+    /// disruption→reroute contract.
+    @State private var acceptedReroute: HeroContext.Rerouted?
     /// Soonest persisted ETA per `[stopCode][serviceNo]`, loaded from the
     /// App Group snapshot at init so Home renders last-known ETAs instantly
     /// on cold launch instead of flashing blank chips. Replaced as soon as
@@ -91,7 +96,7 @@ struct HomeView: View {
                     ambientAlertStripIfAny
                     activeTripBanner
                     Button { openPlanner() } label: {
-                        HomeHero(context: heroContext)
+                        HomeHero(context: heroContext, onAcceptReroute: acceptInCardReroute)
                     }
                     .buttonStyle(.plain)
                     .accessibilityHint("Opens planner")
@@ -159,6 +164,21 @@ struct HomeView: View {
                     await viewModel.refresh()
                     await refreshWeatherAndJourney()
                     await refreshPinnedStopETAs(force: true)
+                }
+            }
+            // `commute://` deep links (e.g. tapping a Live Activity) land
+            // on AppState; route here so the NavigationStack is in scope
+            // when we push. Clear immediately so a re-fired link doesn't
+            // get swallowed.
+            .onChange(of: appState.pendingDeepLink) { _, link in
+                guard let link else { return }
+                appState.pendingDeepLink = nil
+                handleDeepLink(link, nav: nav)
+            }
+            .task(id: appState.pendingDeepLink) {
+                if let link = appState.pendingDeepLink {
+                    appState.pendingDeepLink = nil
+                    handleDeepLink(link, nav: nav)
                 }
             }
             .navigationDestination(for: HomeRoute.self) { route in
@@ -700,6 +720,21 @@ struct HomeView: View {
 
     // MARK: - Hero context
 
+    /// Resolve a `commute://` deep link to a HomeNavigation push. We push
+    /// the bus-stop detail screen with whatever arrivals are currently
+    /// cached for that stop — the screen runs its own refresh on appear,
+    /// so an empty cache just shows a loading state.
+    private func handleDeepLink(_ link: AppState.DeepLink, nav: HomeNavigation) {
+        switch link {
+        case .busStop(let code):
+            guard let stop = BusStopNameCache.shared.stop(forCode: code) else { return }
+            // Pop to root first so the deep-linked screen lands on top of
+            // a clean stack rather than below whatever the user was on.
+            nav.popToRoot()
+            nav.go(.busStop(stop, []))
+        }
+    }
+
     private var heroContext: HeroContext {
         let name = appState.userName.trimmingCharacters(in: .whitespaces)
         var ctx = HeroContext.make(
@@ -714,10 +749,55 @@ struct HomeView: View {
             ctx.disruption = HeroContext.Disruption(
                 lineName: d.line.fullName,
                 lineCode: d.line.code,
-                stations: d.stations
+                stations: d.stations,
+                // Mock alternative until the routing engine surfaces real
+                // candidates — the CTA still demonstrates the contract.
+                reroute: HeroContext.RerouteOption(
+                    routeSummary: "Bus 14 → \(d.line.code)",
+                    savesMinutes: 6,
+                    fareSGD: 1.89
+                )
             )
         }
+        ctx.rerouted = acceptedReroute
         return ctx
+    }
+
+    /// Handler for the in-card reroute CTA. Flips the hero to the green
+    /// confirmation state and pushes the new path to any in-flight Journey
+    /// live activity. Auto-clears after 6s so the hero falls back to its
+    /// normal time-of-day treatment with the new route.
+    private func acceptInCardReroute() {
+        let arriveBy = Date().addingTimeInterval(28 * 60)
+        let f = DateFormatter()
+        f.timeStyle = .short
+        let r = HeroContext.Rerouted(
+            routeSummary: "Bus 14 → EW",
+            updatedArriveBy: f.string(from: arriveBy)
+        )
+        withAnimation(.spring(response: 0.45, dampingFraction: 0.78)) {
+            acceptedReroute = r
+        }
+        Task { @MainActor in
+            // Push the new leg into the running Journey activity, if any.
+            let leg = JourneyActivity.Leg(
+                mode: .bus,
+                serviceCode: "14",
+                actionText: "Board Bus 14",
+                detailText: "Rerouted around delays",
+                minutesRemaining: 6
+            )
+            let state = JourneyActivity.State(
+                totalMinutesRemaining: 28,
+                arrivalClockTime: arriveBy,
+                currentLeg: leg,
+                nextLeg: nil,
+                lastUpdated: Date()
+            )
+            await LiveActivityManager.shared.updateJourney(state: state)
+            try? await Task.sleep(nanoseconds: 6_000_000_000)
+            withAnimation(.smooth) { acceptedReroute = nil }
+        }
     }
 
     /// Refresh weather + journey suggestion together. Both are best-effort

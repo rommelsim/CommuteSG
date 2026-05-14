@@ -16,6 +16,9 @@ struct JourneyOptionCard: View {
                 topRow
                 miniTimeline
                 metaRow
+                if let crowdStation = crowdStationCode {
+                    InlineCrowdStrip(crowd: option.crowd, stationCode: crowdStation)
+                }
                 if let score {
                     Divider().background(Color.cfHairline)
                     CommuteScoreFooter(score: score)
@@ -239,6 +242,17 @@ struct JourneyOptionCard: View {
         case .limited:  Color.appDanger
         default:        Color.appSuccess
         }
+    }
+
+    /// Pulls the user's first MRT leg's station code so the inline crowd
+    /// strip can label "Low crowd · CC23". Falls back to the first bus
+    /// service code when the trip has no rail leg, or nil for walk-only.
+    private var crowdStationCode: String? {
+        for seg in option.segments {
+            if case let .mrt(line, _) = seg { return line.code }
+            if case let .bus(no, _) = seg { return no }
+        }
+        return nil
     }
 
     private var crowdLabel: String {

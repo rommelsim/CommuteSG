@@ -2,439 +2,350 @@ import SwiftUI
 import WidgetKit
 import ActivityKit
 
-/// Live Activity surface — Lock Screen card + Dynamic Island compact /
-/// expanded / minimal presentations. Uses the shared `BusTrackingActivity`
-/// attributes (the source file is added to both the main app target and
-/// this widget extension target via Target Membership).
+/// Bus-tracking Live Activity. Lock-screen banner + Dynamic Island compact
+/// / minimal / expanded states. Layout choices respond to in-product
+/// feedback rather than the v2 prototype verbatim:
+/// - Lock screen drops the obvious "Commute · Live Activity" caption — the
+///   space goes to the user's stop name + walk time, which is what the
+///   user actually needs while walking.
+/// - Compact pill packs the bus number + ETA *and* a 1-letter stop hint;
+///   the prototype's bare ETA loses too much context when several services
+///   are in flight.
+/// - Expanded uses a full-width header (no leading/trailing region split)
+///   so long destination names don't truncate or overflow the bus pill.
 struct BusTrackingLiveActivity: Widget {
     var body: some WidgetConfiguration {
         ActivityConfiguration(for: BusTrackingActivity.self) { context in
-            LockScreenView(context: context)
-                .activityBackgroundTint(brandBlueDark)
+            LockScreenBanner(context: context)
+                .activityBackgroundTint(.black.opacity(0.78))
                 .activitySystemActionForegroundColor(.white)
+                .widgetURL(deepLinkURL(for: context))
         } dynamicIsland: { context in
             DynamicIsland {
-                DynamicIslandExpandedRegion(.leading) {
-                    VStack(alignment: .center, spacing: 4) {
-                        Image(systemName: "bus.fill")
-                            .font(.system(size: 18))
-                            .foregroundStyle(.white.opacity(0.75))
-                        Text("Commute")
-                            .font(.system(size: 9, weight: .medium))
-                            .tracking(0.4)
-                            .foregroundStyle(.white.opacity(0.55))
-                            .lineLimit(1)
-                            .fixedSize(horizontal: true, vertical: false)
-                    }
-                    .padding(.leading, 4)
-                }
-                DynamicIslandExpandedRegion(.trailing) {
-                    EtaBlock(
-                        minutes: context.state.etaMinutes,
-                        primarySize: 28,
-                        unitSize: 13,
-                        primaryColor: .white,
-                        secondary: arrivalClockTime(for: context.state.etaMinutes),
-                        secondaryColor: .white.opacity(0.6)
-                    )
-                    .padding(.trailing, 4)
-                }
+                // Full-width header in the .center region. Avoids the
+                // .leading/.trailing split that was clipping the bus pill
+                // and overflowing "Live" into the stop name.
                 DynamicIslandExpandedRegion(.center) {
-                    VStack(alignment: .leading, spacing: 6) {
-                        HStack(spacing: 8) {
-                            ServicePill(service: context.attributes.serviceNo, size: 13)
-                            HStack(spacing: 4) {
-                                Circle()
-                                    .fill(context.state.isLive ? liveGreen : Color.orange)
-                                    .frame(width: 5, height: 5)
-                                Text(context.state.isLive ? "LIVE" : "SCHED")
-                                    .font(.system(size: 9, weight: .semibold))
-                                    .tracking(0.5)
-                                    .foregroundStyle(.white.opacity(0.85))
-                                    .lineLimit(1)
-                                    .fixedSize(horizontal: true, vertical: false)
-                            }
-                        }
-                        Text(routeSubtitle(for: context))
-                            .font(.system(size: 11))
-                            .foregroundStyle(.white.opacity(0.7))
-                            .lineLimit(1)
-                            .truncationMode(.tail)
-                    }
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .padding(.top, 4)
+                    ExpandedHeader(context: context)
+                        .padding(.horizontal, 4)
+                        .padding(.top, 2)
+                        .widgetURL(deepLinkURL(for: context))
                 }
                 DynamicIslandExpandedRegion(.bottom) {
-                    VStack(spacing: 0) {
-                        Rectangle()
-                            .fill(Color.white.opacity(0.15))
-                            .frame(height: 0.5)
-                            .padding(.bottom, 10)
-                        HStack(alignment: .top, spacing: 0) {
-                            statColumn(
-                                label: "STOP",
-                                value: stopCodeOrDash(for: context),
-                                tint: .white
-                            )
-                            statDivider
-                            statColumn(
-                                label: "STATUS",
-                                value: context.state.isLive ? "Live" : "Sched",
-                                tint: context.state.isLive ? liveGreen : Color.orange
-                            )
-                            statDivider
-                            statColumn(
-                                label: "CROWD",
-                                value: crowdShort(context.state.crowdLevel),
-                                tint: crowdColor(context.state.crowdLevel),
-                                leadingIcon: "person.2.fill"
-                            )
-                        }
+                    VStack(spacing: 8) {
+                        ArrivalsStrip(
+                            nextMinutes: context.state.etaMinutes,
+                            following: context.state.followingMinutes
+                        )
+                        BusCrowdRow(crowdLevel: context.state.crowdLevel)
                     }
+                    .padding(.horizontal, 4)
+                    .padding(.bottom, 2)
                 }
             } compactLeading: {
-                ServicePill(service: context.attributes.serviceNo, size: 11)
+                // Just the bus pill — stop name was getting truncated to
+                // garbage in the ~16pt compact slot. Stop context lives in
+                // the expanded view (long-press) where there's room.
+                BusPillDark(serviceNo: context.attributes.serviceNo)
             } compactTrailing: {
-                HStack(alignment: .firstTextBaseline, spacing: 2) {
-                    Text(compactPrimary(context.state.etaMinutes))
-                        .font(.system(size: 15, weight: .medium))
-                        .monospacedDigit()
-                        .foregroundStyle(.white)
-                    if let m = context.state.etaMinutes, m > 0 {
-                        Text("min")
-                            .font(.system(size: 11))
-                            .foregroundStyle(.white.opacity(0.7))
+                Text(compactETA(context.state.etaMinutes))
+                    .font(.system(size: 13, weight: .bold).monospacedDigit())
+                    .foregroundStyle(LiveActivityPalette.green)
+            } minimal: {
+                // Minimal is a single ~24pt circle — used when something
+                // else (music, timer) owns the main compact region. Pack
+                // bus number + ETA together so the user can still tell
+                // which route this is, not just "some number is ticking".
+                MinimalPill(
+                    serviceNo: context.attributes.serviceNo,
+                    etaMinutes: context.state.etaMinutes
+                )
+            }
+        }
+    }
+
+    private func compactETA(_ m: Int?) -> String {
+        guard let m else { return "—" }
+        return m <= 0 ? "ARR" : "\(m)m"
+    }
+
+    /// Deep-link tap target. Lock-screen tap and Dynamic Island tap (in
+    /// every state — compact/minimal/expanded — when set on `.widgetURL`)
+    /// route to `commute://stop/<stopCode>`. The main app's `.onOpenURL`
+    /// pushes the bus-stop detail screen, which is one tap from live
+    /// tracking — full reconstruction of a `BusArrival` from snapshot
+    /// data isn't worth the complexity.
+    private func deepLinkURL(for context: ActivityViewContext<BusTrackingActivity>) -> URL? {
+        let code = context.attributes.stopCode
+        guard !code.isEmpty else { return URL(string: "commute://") }
+        return URL(string: "commute://stop/\(code)")
+    }
+}
+
+/// Tightly packed bus-number + ETA for the Dynamic Island `minimal` slot.
+/// Two lines stacked because the slot is taller than it is wide; horizontal
+/// "91·2" was hitting the round clip mask and getting cut on both sides.
+private struct MinimalPill: View {
+    let serviceNo: String
+    let etaMinutes: Int?
+
+    var body: some View {
+        VStack(spacing: 0) {
+            Text(serviceNo)
+                .font(.system(size: 9, weight: .bold).monospacedDigit())
+                .foregroundStyle(.white.opacity(0.85))
+                .lineLimit(1)
+                .minimumScaleFactor(0.6)
+            Text(etaText)
+                .font(.system(size: 10, weight: .bold).monospacedDigit())
+                .foregroundStyle(LiveActivityPalette.green)
+                .lineLimit(1)
+                .minimumScaleFactor(0.6)
+        }
+        .padding(.horizontal, 2)
+    }
+
+    private var etaText: String {
+        guard let m = etaMinutes else { return "—" }
+        return m <= 0 ? "ARR" : "\(m)m"
+    }
+}
+
+// MARK: - Lock-screen banner
+
+private struct LockScreenBanner: View {
+    let context: ActivityViewContext<BusTrackingActivity>
+
+    var body: some View {
+        HStack(spacing: 14) {
+            // Bus pill instead of a generic gradient app-icon — surfaces
+            // the route number, which is the strongest at-a-glance cue.
+            BusPillDark(serviceNo: context.attributes.serviceNo)
+                .scaleEffect(1.4)
+                .frame(width: 48, height: 36)
+
+            VStack(alignment: .leading, spacing: 3) {
+                // Top line is the trip headline: where this bus is going.
+                Text("→ \(context.attributes.destination)")
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundStyle(.white)
+                    .lineLimit(1)
+                    .truncationMode(.tail)
+                // Sub line replaces the "Commute · Live Activity" caption
+                // with the practically useful info: which stop + live status.
+                HStack(spacing: 6) {
+                    Text(context.attributes.stopName)
+                        .font(.system(size: 11, weight: .medium))
+                        .foregroundStyle(.white.opacity(0.55))
+                        .lineLimit(1)
+                    if context.state.isLive {
+                        Circle()
+                            .fill(LiveActivityPalette.green)
+                            .frame(width: 5, height: 5)
+                        Text("Live")
+                            .font(.system(size: 10, weight: .semibold))
+                            .foregroundStyle(.white.opacity(0.55))
+                    } else {
+                        Text("· Scheduled")
+                            .font(.system(size: 10, weight: .medium))
+                            .foregroundStyle(.white.opacity(0.4))
                     }
                 }
-            } minimal: {
-                HStack(spacing: 3) {
-                    Image(systemName: "bus.fill")
-                        .font(.system(size: 11, weight: .semibold))
-                        .foregroundStyle(.white)
-                    Text(minimalPrimary(context.state.etaMinutes))
-                        .font(.system(size: 12, weight: .medium))
-                        .monospacedDigit()
-                        .foregroundStyle(.white)
+            }
+
+            Spacer(minLength: 8)
+
+            VStack(alignment: .trailing, spacing: 1) {
+                Text(heroETA)
+                    .font(.system(size: 30, weight: .bold).monospacedDigit())
+                    .foregroundStyle(isArriving ? LiveActivityPalette.greenBright
+                                                : LiveActivityPalette.green)
+                if !isArriving {
+                    Text("min")
+                        .font(.system(size: 10))
+                        .foregroundStyle(.white.opacity(0.4))
                 }
             }
-            .keylineTint(brandBlueMid)
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 12)
+    }
+
+    private var heroETA: String {
+        guard let m = context.state.etaMinutes else { return "—" }
+        return m <= 0 ? "ARR" : "\(m)"
+    }
+
+    private var isArriving: Bool {
+        (context.state.etaMinutes ?? 99) <= 0
+    }
+}
+
+// MARK: - Expanded header
+
+private struct ExpandedHeader: View {
+    let context: ActivityViewContext<BusTrackingActivity>
+
+    var body: some View {
+        HStack(alignment: .center, spacing: 10) {
+            BusPillDark(serviceNo: context.attributes.serviceNo)
+            VStack(alignment: .leading, spacing: 2) {
+                Text("→ \(context.attributes.destination)")
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundStyle(.white)
+                    .lineLimit(1)
+                    .truncationMode(.tail)
+                Text(context.attributes.stopName)
+                    .font(.system(size: 10))
+                    .foregroundStyle(.white.opacity(0.5))
+                    .lineLimit(1)
+            }
+            Spacer(minLength: 4)
+            // Live dot stays compact so it can't overflow.
+            HStack(spacing: 4) {
+                Circle()
+                    .fill(context.state.isLive ? LiveActivityPalette.green : Color.orange)
+                    .frame(width: 6, height: 6)
+                Text(context.state.isLive ? "Live" : "Sched")
+                    .font(.system(size: 10))
+                    .foregroundStyle(.white.opacity(0.45))
+            }
         }
     }
+}
 
-    // MARK: - Helpers
+// MARK: - Reusable building blocks
 
-    private func compactPrimary(_ minutes: Int?) -> String {
-        guard let m = minutes else { return "—" }
-        if m == 0 { return "Arr" }
-        return "\(m)"
+/// White-text bus pill for dark Live Activity surfaces. The in-app
+/// `ServicePill` uses a different palette — keep both rather than
+/// branch one component on a flag.
+struct BusPillDark: View {
+    let serviceNo: String
+    var body: some View {
+        Text(serviceNo)
+            .font(.system(size: 12, weight: .bold).monospacedDigit())
+            .foregroundStyle(.white)
+            .padding(.horizontal, 7)
+            .padding(.vertical, 3)
+            .background(Color.white.opacity(0.16),
+                        in: RoundedRectangle(cornerRadius: 5, style: .continuous))
     }
+}
 
-    private func minimalPrimary(_ minutes: Int?) -> String {
-        guard let m = minutes else { return "—" }
-        if m == 0 { return "•" }
-        return "\(m)'"
-    }
+private struct ArrivalsStrip: View {
+    let nextMinutes: Int?
+    let following: [Int]
 
-    private func routeSubtitle(for context: ActivityViewContext<BusTrackingActivity>) -> String {
-        let from = context.attributes.stopName
-        // Strip any leading "→" the destination string may already carry —
-        // some callers format it as "→ 43009". Without this we render
-        // "Bef Clementi Rd → → 43009".
-        let to = context.attributes.destination
-            .trimmingCharacters(in: .whitespaces)
-            .drop(while: { $0 == "→" })
-            .trimmingCharacters(in: .whitespaces)
-        if from.isEmpty { return "→ \(to)" }
-        return "\(from) → \(to)"
-    }
-
-    private func stopCodeOrDash(for context: ActivityViewContext<BusTrackingActivity>) -> String {
-        let code = context.attributes.stopCode
-        return code.isEmpty ? "—" : code
-    }
-
-    private func arrivalClockTime(for minutes: Int?) -> String? {
-        guard let m = minutes, m > 0 else { return nil }
-        let when = Date().addingTimeInterval(TimeInterval(m * 60))
-        let f = DateFormatter()
-        f.dateFormat = "h:mm a"
-        return f.string(from: when)
-    }
-
-    private func crowdShort(_ raw: String) -> String {
-        switch raw.lowercased() {
-        case "seats": "Seats"
-        case "standing": "Standing"
-        case "limited": "Packed"
-        default: "—"
-        }
-    }
-
-    private func crowdColor(_ raw: String) -> Color {
-        switch raw.lowercased() {
-        case "seats": liveGreen
-        case "standing": Color(red: 0.98, green: 0.66, blue: 0.16)
-        case "limited": Color(red: 0.95, green: 0.41, blue: 0.41)
-        default: .white
+    var body: some View {
+        HStack(spacing: 6) {
+            slot(label: "NEXT", minutes: nextMinutes, isFirst: true)
+            slot(label: "THEN", minutes: following.first, isFirst: false)
+            slot(label: "AFTER", minutes: following.dropFirst().first, isFirst: false)
         }
     }
 
     @ViewBuilder
-    private func statColumn(label: String, value: String, tint: Color, leadingIcon: String? = nil) -> some View {
-        VStack(alignment: .leading, spacing: 4) {
+    private func slot(label: String, minutes: Int?, isFirst: Bool) -> some View {
+        if let m = minutes {
+            VStack(alignment: .leading, spacing: 2) {
+                Text(label)
+                    .font(.system(size: 9, weight: .semibold))
+                    .foregroundStyle(.white.opacity(0.35))
+                Text(m <= 0 ? "ARR" : "\(m)m")
+                    .font(.system(size: isFirst ? 17 : 14, weight: .bold).monospacedDigit())
+                    .foregroundStyle(isFirst ? LiveActivityPalette.green
+                                             : .white.opacity(0.55))
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.horizontal, 10)
+            .padding(.vertical, 8)
+            .background(
+                RoundedRectangle(cornerRadius: 10, style: .continuous)
+                    .fill(isFirst ? LiveActivityPalette.green.opacity(0.10)
+                                  : Color.white.opacity(0.05))
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: 10, style: .continuous)
+                    .strokeBorder(isFirst ? LiveActivityPalette.green.opacity(0.20)
+                                          : Color.clear, lineWidth: 0.5)
+            )
+        } else {
+            VStack(spacing: 2) {
+                Text("—")
+                    .font(.system(size: 14))
+                    .foregroundStyle(.white.opacity(0.30))
+                Text("No further")
+                    .font(.system(size: 8))
+                    .foregroundStyle(.white.opacity(0.25))
+            }
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 8)
+            .background(
+                RoundedRectangle(cornerRadius: 10, style: .continuous)
+                    .fill(Color.white.opacity(0.03))
+            )
+        }
+    }
+}
+
+/// Bus crowd indicator. **Not** "platform crowd" — that's a train concept.
+/// For a single bus this describes the bus's own loading: seats free vs
+/// standing-only vs packed. Mapping comes from `CrowdLevel.label` in the
+/// app target ("Seats" / "Standing" / "Limited").
+private struct BusCrowdRow: View {
+    let crowdLevel: String
+
+    private var filledCount: Int {
+        switch crowdLevel.lowercased() {
+        case "limited":  3
+        case "standing": 2
+        case "seats":    1
+        default:         0
+        }
+    }
+
+    private var label: String {
+        switch crowdLevel.lowercased() {
+        case "limited":  "Packed"
+        case "standing": "Standing"
+        case "seats":    "Seats free"
+        default:         "—"
+        }
+    }
+
+    private var labelColor: Color {
+        switch crowdLevel.lowercased() {
+        case "limited":  Color(red: 0.94, green: 0.27, blue: 0.27)
+        case "standing": Color(red: 0.96, green: 0.62, blue: 0.04)
+        case "seats":    LiveActivityPalette.green
+        default:         .white.opacity(0.45)
+        }
+    }
+
+    var body: some View {
+        HStack(spacing: 8) {
+            Text("Bus crowd")
+                .font(.system(size: 9))
+                .foregroundStyle(.white.opacity(0.35))
+            HStack(spacing: 3) {
+                ForEach(0..<3) { i in
+                    RoundedRectangle(cornerRadius: 2, style: .continuous)
+                        .fill(i < filledCount ? labelColor.opacity(0.85)
+                                              : Color.white.opacity(0.10))
+                        .frame(width: 13, height: 13)
+                }
+            }
             Text(label)
                 .font(.system(size: 10, weight: .medium))
-                .tracking(0.5)
-                .foregroundStyle(.white.opacity(0.5))
-            HStack(spacing: 4) {
-                if let leadingIcon {
-                    Image(systemName: leadingIcon)
-                        .font(.system(size: 12))
-                        .foregroundStyle(tint)
-                }
-                Text(value)
-                    .font(.system(size: 13, weight: .medium))
-                    .foregroundStyle(tint)
-                    .lineLimit(1)
-            }
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
-    }
-
-    private var statDivider: some View {
-        Rectangle()
-            .fill(Color.white.opacity(0.15))
-            .frame(width: 0.5, height: 28)
-            .padding(.horizontal, 10)
-            .padding(.top, 2)
-    }
-}
-
-// MARK: - Lock Screen view
-
-private struct LockScreenView: View {
-    let context: ActivityViewContext<BusTrackingActivity>
-
-    var body: some View {
-        ZStack {
-            LinearGradient(
-                colors: [brandBlueDark, brandBlueMid],
-                startPoint: .topLeading,
-                endPoint: .bottomTrailing
-            )
-
-            // Decorative orbs (top-right + bottom-left), matching the mock
-            Circle()
-                .fill(Color.white.opacity(0.06))
-                .frame(width: 90, height: 90)
-                .offset(x: 130, y: -60)
-            Circle()
-                .fill(Color.white.opacity(0.04))
-                .frame(width: 60, height: 60)
-                .offset(x: -40, y: 60)
-
-            VStack(spacing: 10) {
-                header
-
-                HStack(alignment: .bottom, spacing: 12) {
-                    VStack(alignment: .leading, spacing: 4) {
-                        HStack(alignment: .firstTextBaseline, spacing: 6) {
-                            Text(heroMinutes)
-                                .font(.system(size: 56, weight: .medium))
-                                .monospacedDigit()
-                                .foregroundStyle(.white)
-                                .contentTransition(.numericText())
-                                .animation(.snappy, value: context.state.etaMinutes)
-                            if showsHeroUnit {
-                                Text("min")
-                                    .font(.system(size: 18))
-                                    .foregroundStyle(.white.opacity(0.85))
-                            }
-                        }
-                        Text(arrivalSubtitle)
-                            .font(.system(size: 12))
-                            .foregroundStyle(.white.opacity(0.65))
-                    }
-                    Spacer()
-                    VStack(alignment: .trailing, spacing: 6) {
-                        ServicePill(service: context.attributes.serviceNo, size: 15)
-                        Text("to \(context.attributes.destination)")
-                            .font(.system(size: 11))
-                            .foregroundStyle(.white.opacity(0.7))
-                            .lineLimit(1)
-                    }
-                }
-
-                Rectangle()
-                    .fill(Color.white.opacity(0.2))
-                    .frame(height: 0.5)
-
-                footer
-            }
-            .padding(.horizontal, 16)
-            .padding(.vertical, 14)
-        }
-    }
-
-    private var header: some View {
-        HStack {
-            HStack(spacing: 8) {
-                RoundedRectangle(cornerRadius: 7, style: .continuous)
-                    .fill(Color.white.opacity(0.95))
-                    .frame(width: 26, height: 26)
-                    .overlay(
-                        Image(systemName: "bus.fill")
-                            .font(.system(size: 13, weight: .semibold))
-                            .foregroundStyle(brandBlueDark)
-                    )
-                Text("Commute")
-                    .font(.system(size: 12, weight: .medium))
-                    .foregroundStyle(.white.opacity(0.75))
-            }
-            Spacer()
-            HStack(spacing: 6) {
-                Circle()
-                    .fill(context.state.isLive ? liveGreen : Color.orange)
-                    .frame(width: 6, height: 6)
-                Text(context.state.isLive ? "LIVE" : "SCHED")
-                    .font(.system(size: 11, weight: .medium))
-                    .tracking(0.4)
-                    .foregroundStyle(.white.opacity(0.75))
-            }
-        }
-    }
-
-    private var footer: some View {
-        HStack {
-            HStack(spacing: 6) {
-                Image(systemName: "mappin.and.ellipse")
-                    .font(.system(size: 12))
-                    .foregroundStyle(.white.opacity(0.65))
-                Text(context.attributes.stopName)
-                    .font(.system(size: 12))
-                    .foregroundStyle(.white.opacity(0.75))
-                    .lineLimit(1)
-            }
-            Spacer()
-            HStack(spacing: 6) {
-                Image(systemName: "person.2.fill")
-                    .font(.system(size: 11))
-                    .foregroundStyle(crowdColor(context.state.crowdLevel))
-                Text(crowdLabel(context.state.crowdLevel))
-                    .font(.system(size: 12, weight: .medium))
-                    .foregroundStyle(crowdColor(context.state.crowdLevel))
-            }
-        }
-    }
-
-    private var heroMinutes: String {
-        guard let m = context.state.etaMinutes else { return "—" }
-        if m == 0 { return "Arr" }
-        return "\(m)"
-    }
-
-    private var showsHeroUnit: Bool {
-        if let m = context.state.etaMinutes, m > 0 { return true }
-        return false
-    }
-
-    private var arrivalSubtitle: String {
-        guard let m = context.state.etaMinutes, m > 0 else {
-            return context.state.isLive ? "Arriving now" : "Live updates paused"
-        }
-        let when = Date().addingTimeInterval(TimeInterval(m * 60))
-        let f = DateFormatter()
-        f.dateFormat = "h:mm a"
-        return "Arriving \(f.string(from: when))"
-    }
-
-    private func crowdLabel(_ raw: String) -> String {
-        switch raw.lowercased() {
-        case "seats": "Seats"
-        case "standing": "Standing"
-        case "limited": "Packed"
-        default: "—"
-        }
-    }
-
-    private func crowdColor(_ raw: String) -> Color {
-        switch raw.lowercased() {
-        case "seats": liveGreen
-        case "standing": Color(red: 1.0, green: 0.78, blue: 0.35)
-        case "limited": Color(red: 1.0, green: 0.55, blue: 0.55)
-        default: .white.opacity(0.7)
+                .foregroundStyle(labelColor)
+            Spacer(minLength: 0)
         }
     }
 }
 
-// MARK: - Shared building blocks
-
-/// White rounded pill carrying the bus service number — the mock's hero
-/// affordance. Sizes are tuned so the same component works in the compact
-/// island (size 11), expanded island (size 13) and lock screen (size 15).
-private struct ServicePill: View {
-    let service: String
-    let size: CGFloat
-
-    var body: some View {
-        Text(service)
-            .font(.system(size: size, weight: .medium))
-            .monospacedDigit()
-            .foregroundStyle(Color.black)
-            .padding(.horizontal, max(7, size * 0.6))
-            .padding(.vertical, max(2, size * 0.22))
-            .background(Color.white, in: RoundedRectangle(cornerRadius: max(6, size * 0.55), style: .continuous))
-    }
+/// Shared palette for Live Activity surfaces only. Brighter green than the
+/// in-app palette because it sits on a forced-dark canvas.
+enum LiveActivityPalette {
+    static let green       = Color(red: 0.133, green: 0.773, blue: 0.369)
+    static let greenBright = Color(red: 0.306, green: 0.824, blue: 0.627)
 }
-
-/// Right-aligned ETA block with optional secondary line (e.g. clock time).
-private struct EtaBlock: View {
-    let minutes: Int?
-    let primarySize: CGFloat
-    let unitSize: CGFloat
-    let primaryColor: Color
-    let secondary: String?
-    let secondaryColor: Color
-
-    var body: some View {
-        VStack(alignment: .trailing, spacing: 2) {
-            HStack(alignment: .firstTextBaseline, spacing: 3) {
-                Text(primary)
-                    .font(.system(size: primarySize, weight: .medium))
-                    .monospacedDigit()
-                    .foregroundStyle(primaryColor)
-                    .contentTransition(.numericText())
-                    .animation(.snappy, value: minutes)
-                if showsUnit {
-                    Text("min")
-                        .font(.system(size: unitSize))
-                        .foregroundStyle(primaryColor.opacity(0.7))
-                }
-            }
-            if let secondary {
-                Text(secondary)
-                    .font(.system(size: 11))
-                    .foregroundStyle(secondaryColor)
-            }
-        }
-    }
-
-    private var primary: String {
-        guard let m = minutes else { return "—" }
-        if m == 0 { return "Arr" }
-        return "\(m)"
-    }
-
-    private var showsUnit: Bool {
-        if let m = minutes, m > 0 { return true }
-        return false
-    }
-}
-
-// MARK: - Palette
-
-/// Lock-screen gradient endpoints, matching `#1e4a8a` / `#2563ad`.
-private let brandBlueDark = Color(red: 0.118, green: 0.290, blue: 0.541)
-private let brandBlueMid  = Color(red: 0.145, green: 0.388, blue: 0.678)
-/// "Live" dot + seats indicator — `#4ade80`.
-private let liveGreen     = Color(red: 0.290, green: 0.871, blue: 0.502)

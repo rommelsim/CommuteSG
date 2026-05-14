@@ -63,6 +63,16 @@ final class AppState {
     private static let collapsedKey     = "commute.collapsedSections"
     private static let languageKey      = "commute.language"
 
+    /// Set when a `commute://` deep link arrives (e.g. tap on a Live
+    /// Activity). HomeView observes this and pushes the matching screen,
+    /// then clears it back to nil so re-entries don't re-fire.
+    var pendingDeepLink: DeepLink?
+
+    enum DeepLink: Hashable {
+        /// Open the bus-stop detail screen for this stop code.
+        case busStop(stopCode: String)
+    }
+
     var hasCompletedOnboarding: Bool {
         didSet { UserDefaults.standard.set(hasCompletedOnboarding, forKey: Self.onboardingKey) }
     }

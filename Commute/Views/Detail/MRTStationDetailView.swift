@@ -45,6 +45,7 @@ struct MRTStationDetailView: View {
                     VStack(alignment: .leading, spacing: 14) {
                         statusBanner
                         lineMap
+                        trainCrowdIndicator
                         if viewModel.crowdLevel != .unknown {
                             SectionLabel(text: "Platform crowd")
                             crowdCard
@@ -221,6 +222,33 @@ struct MRTStationDetailView: View {
     }
 
     private enum HorizontalEdge { case leading, trailing }
+
+    private var trainCrowdIndicator: some View {
+        let neighbors = MRTStationsRepository.shared.neighborhood(around: station, radius: 3)
+        let stationData: [TrainCrowdIndicator.Station] = neighbors.map { entry in
+            // Synthesise a crowd profile from station code so the strip is
+            // stable across renders. Real LTA Passenger Volume API hookup
+            // is the next step — see open item #2 in the handoff.
+            let h = abs(entry.station.id.hashValue)
+            let pct = 25 + (h % 65)
+            let tier = TrainCrowdIndicator.tier(forPercent: pct)
+            let hourly: [TrainCrowdIndicator.Tier] = (0..<24).map { hr in
+                let p = (hr * 13 + h) % 100
+                return TrainCrowdIndicator.tier(forPercent: p)
+            }
+            return TrainCrowdIndicator.Station(
+                code: entry.station.id,
+                name: entry.station.name,
+                currentTier: tier,
+                hourly: hourly
+            )
+        }
+        return TrainCrowdIndicator(
+            line: station.line,
+            stations: stationData,
+            userStopCode: station.id
+        )
+    }
 
     private var stationsRow: some View {
         let nodes = MRTStationsRepository.shared.neighborhood(around: station, radius: 2)
