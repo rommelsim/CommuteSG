@@ -128,6 +128,38 @@ struct LTAStationCrowd: Decodable {
     }
 }
 
+// LTA DataMall — Station Crowd Density Forecast (next ~1-2h, 30-min slots)
+
+struct LTAStationCrowdForecastResponse: Decodable {
+    let value: [LTAStationCrowdForecastEnvelope]
+    enum CodingKeys: String, CodingKey { case value = "value" }
+}
+
+struct LTAStationCrowdForecastEnvelope: Decodable {
+    let stations: [LTAStationCrowdForecast]
+    enum CodingKeys: String, CodingKey { case stations = "Stations" }
+}
+
+struct LTAStationCrowdForecast: Decodable {
+    let station: String
+    let interval: [LTAStationCrowdForecastInterval]
+
+    enum CodingKeys: String, CodingKey {
+        case station  = "Station"
+        case interval = "Interval"
+    }
+}
+
+struct LTAStationCrowdForecastInterval: Decodable {
+    let start: String         // ISO-8601, slot start
+    let crowdLevel: String    // "l" / "m" / "h" / "NA"
+
+    enum CodingKeys: String, CodingKey {
+        case start      = "Start"
+        case crowdLevel = "CrowdLevel"
+    }
+}
+
 // LTA DataMall — Facilities Maintenance v2 (lift maintenance)
 
 struct LTAFacilitiesMaintenanceResponse: Decodable {

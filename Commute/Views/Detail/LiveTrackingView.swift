@@ -41,6 +41,7 @@ struct LiveTrackingView: View {
                 routeTimelineCard
                 onThisBusCard
                 liveActivityCard
+                stationBrowserLink
             }
             .padding(.horizontal, 20)
             .padding(.vertical, 14)
@@ -555,6 +556,37 @@ struct LiveTrackingView: View {
         }
         .onChange(of: currentArrival.nextArrivalAt) { _, _ in pushActivityUpdate() }
         .onChange(of: currentArrival.nextArrivalCrowd) { _, _ in pushActivityUpdate() }
+    }
+
+    /// Cross-link into the MRT crowd browser. We're on a bus, not an
+    /// MRT, so there's no "current station" anchor — caller renders
+    /// without the "Now at" card.
+    private var stationBrowserLink: some View {
+        NavigationLink(value: HomeRoute.stationBrowser(journey: [], currentCode: nil)) {
+            HStack(spacing: 10) {
+                Image(systemName: "tram.fill")
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundStyle(Color.appInfo)
+                Text("Check MRT crowd")
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundStyle(Color.cfTextPrimary)
+                Spacer(minLength: 8)
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 11, weight: .semibold))
+                    .foregroundStyle(Color.cfTextTertiary)
+            }
+            .padding(.horizontal, 14)
+            .padding(.vertical, 12)
+            .background(
+                RoundedRectangle(cornerRadius: 14, style: .continuous)
+                    .fill(Color.appSurface)
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: 14, style: .continuous)
+                    .strokeBorder(Color.cfHairline, lineWidth: 0.5)
+            )
+        }
+        .buttonStyle(.plain)
     }
 
     private func startLiveActivity() {

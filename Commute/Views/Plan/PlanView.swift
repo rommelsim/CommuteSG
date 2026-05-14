@@ -508,6 +508,8 @@ struct PlanView: View {
             EmptyView()
         case .mySpend:
             MyCommuteSpendView()
+        case .stationBrowser(let journey, let currentCode):
+            StationBrowserView(journey: journey, currentStationCode: currentCode)
         }
     }
 }

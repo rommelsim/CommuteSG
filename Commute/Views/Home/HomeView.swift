@@ -100,6 +100,7 @@ struct HomeView: View {
                     }
                     .buttonStyle(.plain)
                     .accessibilityHint("Opens planner")
+                    stationBrowserEntry(nav: nav)
                     savedDestinations
                     pinnedStopsSection
                     nearbyTransitHeader
@@ -720,6 +721,50 @@ struct HomeView: View {
 
     // MARK: - Hero context
 
+    /// Entry point onto `StationBrowserView`. Always visible so the
+    /// dev preview is reachable; in the journey-aware production flow,
+    /// the journey strip lights up only when there's an active trip.
+    /// Caller derives stops + current code from `TripCoordinator` once
+    /// we wire that up — for now we surface the nearest MRT station as
+    /// the "current" anchor and leave the journey strip empty when
+    /// there's no trip in flight.
+    @ViewBuilder
+    private func stationBrowserEntry(nav: HomeNavigation) -> some View {
+        Button {
+            // Journey strip stays empty until we bind to TripCoordinator —
+            // showing a fake route would contradict the no-mock contract.
+            nav.go(.stationBrowser(
+                journey: [],
+                currentCode: viewModel.nearbyMRT?.station.id
+            ))
+        } label: {
+            HStack(spacing: 10) {
+                Image(systemName: "tram.fill")
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundStyle(Color.appInfo)
+                Text("How crowded is your line?")
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundStyle(Color.cfTextPrimary)
+                Spacer(minLength: 8)
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 11, weight: .semibold))
+                    .foregroundStyle(Color.cfTextTertiary)
+            }
+            .padding(.horizontal, 14)
+            .padding(.vertical, 12)
+            .background(
+                RoundedRectangle(cornerRadius: 14, style: .continuous)
+                    .fill(Color.appSurface)
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: 14, style: .continuous)
+                    .strokeBorder(Color.cfHairline, lineWidth: 0.5)
+            )
+        }
+        .buttonStyle(.plain)
+        .accessibilityHint("Opens MRT crowd browser")
+    }
+
     /// Resolve a `commute://` deep link to a HomeNavigation push. We push
     /// the bus-stop detail screen with whatever arrivals are currently
     /// cached for that stop — the screen runs its own refresh on appear,
@@ -1120,6 +1165,8 @@ struct HomeView: View {
             AlertsView(viewModel: alertsVM)
         case .mySpend:
             MyCommuteSpendView()
+        case .stationBrowser(let journey, let currentCode):
+            StationBrowserView(journey: journey, currentStationCode: currentCode)
         }
     }
 }
@@ -1149,6 +1196,10 @@ enum HomeRoute: Hashable {
     case allBusStops
     case alerts
     case mySpend
+    /// MRT crowd browser screen. `currentCode` is the user's station
+    /// (drives the "Now at" card); `journey` is the active-trip stop
+    /// chain (empty array = no strip).
+    case stationBrowser(journey: [JourneyNode], currentCode: String?)
 }
 
 @Observable

@@ -46,6 +46,7 @@ struct MRTStationDetailView: View {
                         statusBanner
                         lineMap
                         trainCrowdIndicator
+                        stationBrowserLink
                         if viewModel.crowdLevel != .unknown {
                             SectionLabel(text: "Platform crowd")
                             crowdCard
@@ -222,6 +223,37 @@ struct MRTStationDetailView: View {
     }
 
     private enum HorizontalEdge { case leading, trailing }
+
+    /// Push into the dedicated Station Crowd Browser screen with this
+    /// station preselected as the "current" anchor. Empty journey — we
+    /// don't have an active-trip context here.
+    private var stationBrowserLink: some View {
+        NavigationLink(value: HomeRoute.stationBrowser(journey: [], currentCode: station.id)) {
+            HStack(spacing: 10) {
+                Image(systemName: "rectangle.stack.fill")
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundStyle(Color.appInfo)
+                Text("Browse crowd across all stations")
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundStyle(Color.cfTextPrimary)
+                Spacer(minLength: 8)
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 11, weight: .semibold))
+                    .foregroundStyle(Color.cfTextTertiary)
+            }
+            .padding(.horizontal, 14)
+            .padding(.vertical, 12)
+            .background(
+                RoundedRectangle(cornerRadius: 14, style: .continuous)
+                    .fill(Color.appSurface)
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: 14, style: .continuous)
+                    .strokeBorder(Color.cfHairline, lineWidth: 0.5)
+            )
+        }
+        .buttonStyle(.plain)
+    }
 
     private var trainCrowdIndicator: some View {
         let neighbors = MRTStationsRepository.shared.neighborhood(around: station, radius: 3)

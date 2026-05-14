@@ -72,6 +72,8 @@ struct SearchView: View {
             EmptyView()
         case .mySpend:
             EmptyView()
+        case .stationBrowser:
+            EmptyView()
         }
     }
 

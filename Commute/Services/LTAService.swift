@@ -81,6 +81,18 @@ actor LTAService {
         return response.value
     }
 
+    /// Forward-looking crowd forecast per station for the requested
+    /// line. LTA returns 30-min slots over the next ~90 minutes;
+    /// `StationCrowdService` collapses these into hour buckets for the
+    /// browser sheet's timeline.
+    func stationCrowdForecast(line: String, force: Bool = false) async throws -> [LTAStationCrowdForecast] {
+        var components = URLComponents(url: baseURL.appendingPathComponent("PCDRealTimeForecast"), resolvingAgainstBaseURL: false)!
+        components.queryItems = [URLQueryItem(name: "TrainLine", value: line)]
+        let url = components.url!
+        let response: LTAStationCrowdForecastResponse = try await get(url: url)
+        return response.value.flatMap(\.stations)
+    }
+
     func stationCrowd(line: String, force: Bool = false) async throws -> [LTAStationCrowd] {
         let now = Date()
         if !force, let cached = crowdCache[line],
